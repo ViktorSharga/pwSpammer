@@ -1,6 +1,23 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import json
+import time
+import threading
+import platform
+
+# Platform-specific imports
+if platform.system() == "Windows":
+    try:
+        import win32gui
+        import win32api
+        import win32con
+        import win32process
+        import psutil
+        WINDOWS_AVAILABLE = True
+    except ImportError:
+        WINDOWS_AVAILABLE = False
+else:
+    WINDOWS_AVAILABLE = False
 
 class InGameChatHelper:
     def __init__(self, root):
@@ -13,7 +30,16 @@ class InGameChatHelper:
         self.templates = []
         self.selected_template_tile = None
         
+        # Setup Tab variables
+        self.is_connected = False
+        self.game_window_handle = None
+        self.game_process_id = None
+        self.coord1 = None
+        self.coord2 = None
+        self.setting_coordinate = None
+        
         self.create_widgets()
+        self.setup_hotkeys()
     
     def create_widgets(self):
         # Create notebook for tabs
@@ -121,9 +147,78 @@ class InGameChatHelper:
         self.setup_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.setup_frame, text="Setup")
         
-        # TODO: Implement Setup functionality
-        placeholder_label = ttk.Label(self.setup_frame, text="Setup Tab - Coming Soon")
-        placeholder_label.pack(pady=20)
+        # Connection Management Section
+        connection_frame = ttk.LabelFrame(self.setup_frame, text="Connection Management", padding="10")
+        connection_frame.pack(fill='x', padx=10, pady=10)
+        
+        # Status display
+        status_frame = ttk.Frame(connection_frame)
+        status_frame.pack(fill='x', pady=5)
+        
+        ttk.Label(status_frame, text="Status:").pack(side='left')
+        self.status_label = ttk.Label(status_frame, text="UNCONNECTED", foreground='red')
+        self.status_label.pack(side='left', padx=(5, 0))
+        
+        # PID display
+        self.pid_label = ttk.Label(status_frame, text="")
+        self.pid_label.pack(side='left', padx=(10, 0))
+        
+        # Hotkey info
+        hotkey_frame = ttk.Frame(connection_frame)
+        hotkey_frame.pack(fill='x', pady=5)
+        
+        ttk.Label(hotkey_frame, text="Hotkey: CTRL+SHIFT+1 (Connect to focused window)").pack(side='left')
+        
+        # Test Connection button
+        test_conn_frame = ttk.Frame(connection_frame)
+        test_conn_frame.pack(fill='x', pady=5)
+        
+        self.test_connection_button = ttk.Button(test_conn_frame, text="Test Connection", 
+                                               command=self.test_game_connection, state='disabled')
+        self.test_connection_button.pack(side='left')
+        
+        # Chat Calibration Section
+        calibration_frame = ttk.LabelFrame(self.setup_frame, text="Chat Calibration", padding="10")
+        calibration_frame.pack(fill='x', padx=10, pady=10)
+        
+        # Coordinate setting buttons
+        coord_buttons_frame = ttk.Frame(calibration_frame)
+        coord_buttons_frame.pack(fill='x', pady=5)
+        
+        self.set_coord1_button = ttk.Button(coord_buttons_frame, text="Set Coordinate 1", 
+                                          command=lambda: self.set_coordinate(1), state='disabled')
+        self.set_coord1_button.pack(side='left', padx=5)
+        
+        self.set_coord2_button = ttk.Button(coord_buttons_frame, text="Set Coordinate 2", 
+                                          command=lambda: self.set_coordinate(2), state='disabled')
+        self.set_coord2_button.pack(side='left', padx=5)
+        
+        # Coordinate display
+        coord_display_frame = ttk.Frame(calibration_frame)
+        coord_display_frame.pack(fill='x', pady=10)
+        
+        ttk.Label(coord_display_frame, text="Saved Coordinates:").pack(anchor='w')
+        self.coord1_label = ttk.Label(coord_display_frame, text="Coord1: Not set")
+        self.coord1_label.pack(anchor='w', padx=20)
+        self.coord2_label = ttk.Label(coord_display_frame, text="Coord2: Not set")
+        self.coord2_label.pack(anchor='w', padx=20)
+        
+        # Test button
+        test_frame = ttk.Frame(calibration_frame)
+        test_frame.pack(fill='x', pady=5)
+        
+        self.test_clear_button = ttk.Button(test_frame, text="Test ClearChatArea", 
+                                          command=self.test_clear_chat_area, state='disabled')
+        self.test_clear_button.pack(side='left')
+        
+        # Platform warning
+        if not WINDOWS_AVAILABLE:
+            warning_frame = ttk.Frame(self.setup_frame)
+            warning_frame.pack(fill='x', padx=10, pady=10)
+            
+            warning_label = ttk.Label(warning_frame, text="⚠ Windows-specific features not available on this platform", 
+                                    foreground='orange')
+            warning_label.pack()
     
     # MemberList Tab Methods
     def on_member_select(self, event):
@@ -303,6 +398,225 @@ class InGameChatHelper:
                 tile.configure(style='Selected.TFrame')
             else:
                 tile.configure(style='TFrame')
+    
+    # Setup Tab Methods
+    def setup_hotkeys(self):
+        if WINDOWS_AVAILABLE:
+            # Register global hotkey CTRL+SHIFT+1
+            threading.Thread(target=self.hotkey_listener, daemon=True).start()
+    
+    def hotkey_listener(self):
+        if not WINDOWS_AVAILABLE:
+            return
+        
+        while True:
+            try:
+                # Check for CTRL+SHIFT+1 hotkey
+                if (win32api.GetAsyncKeyState(win32con.VK_CONTROL) & 0x8000 and
+                    win32api.GetAsyncKeyState(win32con.VK_SHIFT) & 0x8000 and
+                    win32api.GetAsyncKeyState(0x31) & 0x8000):  # '1' key
+                    
+                    self.root.after(0, self.handle_hotkey)
+                    time.sleep(0.5)  # Prevent multiple triggers
+                
+                time.sleep(0.1)
+            except Exception:
+                time.sleep(1)
+    
+    def handle_hotkey(self):
+        if not WINDOWS_AVAILABLE:
+            messagebox.showerror("Error", "Windows-specific features not available")
+            return
+        
+        try:
+            # Get the currently focused window
+            hwnd = win32gui.GetForegroundWindow()
+            if not hwnd:
+                messagebox.showerror("Error", "No window is currently focused")
+                return
+            
+            # Get window title and process info
+            window_title = win32gui.GetWindowText(hwnd)
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            
+            # Get process name
+            try:
+                process = psutil.Process(pid)
+                process_name = process.name()
+            except:
+                messagebox.showerror("Error", "Could not get process information")
+                return
+            
+            # Validate process and window title
+            if process_name.lower() != "elementclient.exe":
+                messagebox.showerror("Error", f"Expected 'elementclient.exe', found '{process_name}'")
+                return
+            
+            if "Asgard Perfect World" not in window_title:
+                messagebox.showerror("Error", f"Expected window title containing 'Asgard Perfect World', found '{window_title}'")
+                return
+            
+            # Store connection info
+            self.game_window_handle = hwnd
+            self.game_process_id = pid
+            self.is_connected = True
+            
+            # Update UI
+            self.update_connection_status()
+            
+            messagebox.showinfo("Success", f"Connected to game window (PID: {pid})")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to connect: {str(e)}")
+    
+    def update_connection_status(self):
+        if self.is_connected:
+            self.status_label.config(text="CONNECTED", foreground='green')
+            self.pid_label.config(text=f"PID: {self.game_process_id}")
+            self.test_connection_button.config(state='normal')
+            self.set_coord1_button.config(state='normal')
+            self.set_coord2_button.config(state='normal')
+            self.update_test_button_state()
+        else:
+            self.status_label.config(text="UNCONNECTED", foreground='red')
+            self.pid_label.config(text="")
+            self.test_connection_button.config(state='disabled')
+            self.set_coord1_button.config(state='disabled')
+            self.set_coord2_button.config(state='disabled')
+            self.test_clear_button.config(state='disabled')
+    
+    def test_game_connection(self):
+        if not WINDOWS_AVAILABLE:
+            messagebox.showerror("Error", "Windows-specific features not available")
+            return
+        
+        if not self.is_connected or not self.game_window_handle:
+            messagebox.showerror("Error", "Not connected to game window")
+            return
+        
+        try:
+            # Check if window still exists
+            if not win32gui.IsWindow(self.game_window_handle):
+                self.is_connected = False
+                self.update_connection_status()
+                messagebox.showerror("Error", "Game window no longer exists")
+                return
+            
+            # Bring window to front
+            win32gui.SetForegroundWindow(self.game_window_handle)
+            messagebox.showinfo("Success", "Game window brought to focus")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to focus window: {str(e)}")
+    
+    def set_coordinate(self, coord_num):
+        if not WINDOWS_AVAILABLE:
+            messagebox.showerror("Error", "Windows-specific features not available")
+            return
+        
+        if not self.is_connected or not self.game_window_handle:
+            messagebox.showerror("Error", "Not connected to game window")
+            return
+        
+        self.setting_coordinate = coord_num
+        
+        # Focus game window
+        try:
+            win32gui.SetForegroundWindow(self.game_window_handle)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to focus game window: {str(e)}")
+            return
+        
+        # Hide main window temporarily
+        self.root.withdraw()
+        
+        # Create overlay window for coordinate capture
+        self.create_coordinate_overlay()
+    
+    def create_coordinate_overlay(self):
+        if not WINDOWS_AVAILABLE:
+            return
+        
+        # Create transparent overlay
+        overlay = tk.Toplevel()
+        overlay.attributes('-alpha', 0.3)
+        overlay.attributes('-topmost', True)
+        overlay.configure(bg='red')
+        
+        # Make it fullscreen
+        overlay.state('zoomed')
+        overlay.overrideredirect(True)
+        
+        # Add instruction label
+        label = tk.Label(overlay, text=f"Click to set Coordinate {self.setting_coordinate}\nPress ESC to cancel", 
+                        fg='white', bg='red', font=('Arial', 16))
+        label.pack(expand=True)
+        
+        # Bind click event
+        def on_click(event):
+            x, y = event.x_root, event.y_root
+            if self.setting_coordinate == 1:
+                self.coord1 = (x, y)
+                self.coord1_label.config(text=f"Coord1: ({x}, {y})")
+            else:
+                self.coord2 = (x, y)
+                self.coord2_label.config(text=f"Coord2: ({x}, {y})")
+            
+            self.update_test_button_state()
+            overlay.destroy()
+            self.root.deiconify()
+            self.setting_coordinate = None
+        
+        def on_escape(event):
+            overlay.destroy()
+            self.root.deiconify()
+            self.setting_coordinate = None
+        
+        overlay.bind('<Button-1>', on_click)
+        overlay.bind('<Escape>', on_escape)
+        overlay.focus_set()
+    
+    def update_test_button_state(self):
+        if self.is_connected and self.coord1 and self.coord2:
+            self.test_clear_button.config(state='normal')
+        else:
+            self.test_clear_button.config(state='disabled')
+    
+    def test_clear_chat_area(self):
+        if not WINDOWS_AVAILABLE:
+            messagebox.showerror("Error", "Windows-specific features not available")
+            return
+        
+        if not self.is_connected or not self.coord1 or not self.coord2:
+            messagebox.showerror("Error", "Missing connection or coordinates")
+            return
+        
+        try:
+            self.clear_chat_area()
+            messagebox.showinfo("Success", "ClearChatArea executed successfully")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to execute ClearChatArea: {str(e)}")
+    
+    def clear_chat_area(self):
+        if not WINDOWS_AVAILABLE:
+            return
+        
+        # Focus game window
+        win32gui.SetForegroundWindow(self.game_window_handle)
+        time.sleep(0.1)
+        
+        # Click Coord2
+        win32api.SetCursorPos(self.coord2)
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        
+        # Wait 100ms
+        time.sleep(0.1)
+        
+        # Click Coord1
+        win32api.SetCursorPos(self.coord1)
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
 
 class MemberDialog:
