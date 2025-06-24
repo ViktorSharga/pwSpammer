@@ -4,6 +4,8 @@ import json
 import time
 import threading
 import platform
+import os
+from pathlib import Path
 
 # Platform-specific imports
 if platform.system() == "Windows":
@@ -19,15 +21,85 @@ if platform.system() == "Windows":
 else:
     WINDOWS_AVAILABLE = False
 
+class DataManager:
+    """Handles automatic persistence of application data"""
+    
+    def __init__(self):
+        self.data_dir = self._get_data_directory()
+        self.members_file = self.data_dir / "members.json"
+        self.templates_file = self.data_dir / "templates.json"
+        self._ensure_data_directory()
+    
+    def _get_data_directory(self):
+        """Get the application data directory"""
+        if platform.system() == "Windows":
+            # Use %APPDATA% on Windows
+            appdata = os.environ.get('APPDATA', os.path.expanduser('~'))
+            return Path(appdata) / "InGameChatHelper"
+        else:
+            # Use ~/.config on Unix-like systems
+            return Path.home() / ".config" / "InGameChatHelper"
+    
+    def _ensure_data_directory(self):
+        """Create data directory if it doesn't exist"""
+        try:
+            self.data_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            print(f"Warning: Could not create data directory: {e}")
+    
+    def save_members(self, members):
+        """Save members list to persistent storage"""
+        try:
+            with open(self.members_file, 'w', encoding='utf-8') as f:
+                json.dump(members, f, indent=2, ensure_ascii=False)
+            return True
+        except Exception as e:
+            print(f"Error saving members: {e}")
+            return False
+    
+    def load_members(self):
+        """Load members list from persistent storage"""
+        try:
+            if self.members_file.exists():
+                with open(self.members_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"Error loading members: {e}")
+        return []
+    
+    def save_templates(self, templates):
+        """Save templates list to persistent storage"""
+        try:
+            with open(self.templates_file, 'w', encoding='utf-8') as f:
+                json.dump(templates, f, indent=2, ensure_ascii=False)
+            return True
+        except Exception as e:
+            print(f"Error saving templates: {e}")
+            return False
+    
+    def load_templates(self):
+        """Load templates list from persistent storage"""
+        try:
+            if self.templates_file.exists():
+                with open(self.templates_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"Error loading templates: {e}")
+        return []
+
 class InGameChatHelper:
     def __init__(self, root):
         self.root = root
         self.root.title("In-Game Chat Helper")
         self.root.geometry("800x600")
         
-        self.members = []
+        # Initialize data manager for persistence
+        self.data_manager = DataManager()
+        
+        # Load existing data
+        self.members = self.data_manager.load_members()
         self.selected_member_index = None
-        self.templates = []
+        self.templates = self.data_manager.load_templates()
         self.selected_template_tile = None
         
         # Spammer Tab variables
@@ -47,6 +119,10 @@ class InGameChatHelper:
         
         self.create_widgets()
         self.setup_hotkeys()
+        
+        # Initialize displays with loaded data
+        self.refresh_members_list()
+        self.refresh_templates_display()
     
     def create_widgets(self):
         # Create notebook for tabs
@@ -368,6 +444,9 @@ class InGameChatHelper:
         for member in self.members:
             self.members_listbox.insert(tk.END, member)
         
+        # Auto-save members
+        self.data_manager.save_members(self.members)
+        
         # Update Spammer tab recipients when members change
         if hasattr(self, 'recipients_scrollable_frame'):
             self.refresh_recipients_display()
@@ -381,7 +460,9 @@ class InGameChatHelper:
             try:
                 with open(file_path, 'w') as f:
                     json.dump(self.members, f, indent=2)
-                messagebox.showinfo("Success", "Members saved successfully")
+                messagebox.showinfo("Success", 
+                    f"Members saved to: {file_path}\n\n"
+                    f"Note: Members are also automatically saved to your user data folder.")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to save: {str(e)}")
     
@@ -416,9 +497,12 @@ class InGameChatHelper:
                     messagebox.showinfo("Success", 
                         f"Loaded {len(new_members)} new members.\n"
                         f"Skipped {len(duplicates)} duplicates: {', '.join(duplicates[:5])}"
-                        f"{'...' if len(duplicates) > 5 else ''}")
+                        f"{'...' if len(duplicates) > 5 else ''}\n\n"
+                        f"Members are automatically saved to your user data folder.")
                 else:
-                    messagebox.showinfo("Success", f"Loaded {len(new_members)} members successfully")
+                    messagebox.showinfo("Success", 
+                        f"Loaded {len(new_members)} members successfully.\n\n"
+                        f"Members are automatically saved to your user data folder.")
                     
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load: {str(e)}")
@@ -471,6 +555,9 @@ class InGameChatHelper:
         # Create new tiles
         for i, template in enumerate(self.templates):
             self.create_template_tile(i, template)
+        
+        # Auto-save templates
+        self.data_manager.save_templates(self.templates)
         
         # Update scroll region
         self.templates_scrollable_frame.update_idletasks()
