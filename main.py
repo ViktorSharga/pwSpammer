@@ -169,9 +169,11 @@ class InGameChatHelper:
         self.coord1 = None
         self.coord2 = None
         self.setting_coordinate = None
+        self.sending_speed = "Normal"  # Default sending speed
         
         self.create_widgets()
         self.setup_hotkeys()
+        self.setup_global_key_bindings()
         
         # Initialize displays with loaded data
         self.refresh_members_list()
@@ -420,6 +422,27 @@ class InGameChatHelper:
         self.test_clear_button = ttk.Button(test_frame, text="Test ClearChatArea", 
                                           command=self.test_clear_chat_area, state='disabled')
         self.test_clear_button.pack(side='left')
+        
+        # Sending Speed Section
+        speed_frame = ttk.LabelFrame(self.setup_frame, text="Sending Speed", padding="10")
+        speed_frame.pack(fill='x', padx=10, pady=10)
+        
+        speed_info_frame = ttk.Frame(speed_frame)
+        speed_info_frame.pack(fill='x', pady=5)
+        
+        ttk.Label(speed_info_frame, text="Speed:").pack(side='left')
+        self.speed_combobox = ttk.Combobox(speed_info_frame, values=["Fast", "Normal", "Slow"], 
+                                          state="readonly", width=10)
+        self.speed_combobox.set("Normal")
+        self.speed_combobox.pack(side='left', padx=(5, 0))
+        self.speed_combobox.bind('<<ComboboxSelected>>', self.on_speed_changed)
+        
+        # Speed descriptions
+        speed_desc_frame = ttk.Frame(speed_frame)
+        speed_desc_frame.pack(fill='x', pady=5)
+        
+        ttk.Label(speed_desc_frame, text="Fast: 0.2s delay  •  Normal: 0.5s delay  •  Slow: 1.0s delay", 
+                 foreground='gray').pack(anchor='w')
         
         # Platform warning
         if not WINDOWS_AVAILABLE:
@@ -856,8 +879,9 @@ class InGameChatHelper:
                 self.root.after(0, self.update_recipients_count)
                 self.root.after(0, lambda m=member, t=template_name: self.log_message(f"→ Sent {t} to {m}"))
                 
-                # 500ms delay between messages
-                time.sleep(0.5)
+                # Variable delay between messages based on speed setting
+                delay = self.get_sending_delay()
+                time.sleep(delay)
                 
             except Exception as e:
                 self.root.after(0, lambda err=str(e): messagebox.showerror("Error", f"Failed to send message: {err}"))
@@ -1490,6 +1514,41 @@ class InGameChatHelper:
         win32api.SetCursorPos(self.coord1)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+    
+    def setup_global_key_bindings(self):
+        """Setup global key bindings for emergency stop"""
+        try:
+            # Bind ESC key to emergency stop when Send All is active
+            self.root.bind('<KeyPress-Escape>', self.handle_emergency_stop)
+            # Make sure the root window can receive key events
+            self.root.focus_set()
+        except Exception as e:
+            logger.error(f"Failed to setup global key bindings: {e}")
+    
+    def handle_emergency_stop(self, event):
+        """Handle ESC key press for emergency stop"""
+        if self.is_sending:
+            logger.info("Emergency stop triggered by ESC key")
+            self.is_sending = False
+            self.send_all_button.config(text="Send All")
+            if self.send_thread and self.send_thread.is_alive():
+                self.send_thread = None
+            # Show feedback to user
+            self.root.after(0, lambda: messagebox.showinfo("Emergency Stop", "Send All operation stopped by ESC key"))
+    
+    def on_speed_changed(self, event):
+        """Handle sending speed combobox change"""
+        self.sending_speed = self.speed_combobox.get()
+        logger.info(f"Sending speed changed to: {self.sending_speed}")
+    
+    def get_sending_delay(self):
+        """Get delay between messages based on speed setting"""
+        speed_delays = {
+            "Fast": 0.2,    # 200ms
+            "Normal": 0.5,  # 500ms (original)
+            "Slow": 1.0     # 1000ms
+        }
+        return speed_delays.get(self.sending_speed, 0.5)  # Default to Normal if not found
 
 
 class MemberDialog:
