@@ -974,6 +974,8 @@ class InGameChatHelper:
             # Fallback to keyboard events if SendMessage fails
             try:
                 for char in text:
+                    vk_code = None
+                    
                     if char == ' ':
                         vk_code = win32con.VK_SPACE
                     elif char == '/':
@@ -981,12 +983,36 @@ class InGameChatHelper:
                     elif char.isalnum():
                         vk_code = ord(char.upper())
                     else:
-                        # Skip special characters that might cause issues
-                        continue
+                        # Handle common special characters used in game commands/messages
+                        # For simplicity in fallback, we'll use a more direct approach
+                        special_char_map = {
+                            # Direct VK codes for special characters (without shift modifiers)
+                            '-': 0xBD,  # VK_OEM_MINUS
+                            '=': 0xBB,  # VK_OEM_PLUS  
+                            '[': 0xDB,  # VK_OEM_4
+                            ']': 0xDD,  # VK_OEM_6
+                            '\\': 0xDC, # VK_OEM_5
+                            ';': 0xBA,  # VK_OEM_1
+                            "'": 0xDE,  # VK_OEM_7
+                            ',': 0xBC,  # VK_OEM_COMMA
+                            '.': 0xBE,  # VK_OEM_PERIOD
+                            '?': 0xBF,  # VK_OEM_2 + SHIFT (same key as /)
+                            # For shift-modified characters, we'll skip in fallback
+                            # as they're complex to handle properly with keybd_event
+                        }
+                        
+                        if char in special_char_map:
+                            vk_code = special_char_map[char]
+                        else:
+                            # For complex characters like !, @, #, etc. that require SHIFT,
+                            # we'll skip them in the fallback method. The primary WM_CHAR 
+                            # method handles these correctly.
+                            continue
                     
-                    win32api.keybd_event(vk_code, 0, 0, 0)  # Key down
-                    win32api.keybd_event(vk_code, 0, win32con.KEYEVENTF_KEYUP, 0)  # Key up
-                    time.sleep(0.02)
+                    if vk_code is not None:
+                        win32api.keybd_event(vk_code, 0, 0, 0)  # Key down
+                        win32api.keybd_event(vk_code, 0, win32con.KEYEVENTF_KEYUP, 0)  # Key up
+                        time.sleep(0.02)
             except Exception as e2:
                 raise Exception(f"Failed to type message: {str(e2)}")
     
@@ -1011,7 +1037,9 @@ class InGameChatHelper:
             self.send_message(recipient, message)
         else:
             # Mock behavior for non-Windows or disconnected state
-            print(f"Mock: Would send '{message}' to {recipient}")
+            # Show the formatted message as it would actually be sent
+            formatted_message = f"/{recipient} {message}"
+            print(f"Mock: Would send '{formatted_message}'")
     
     def log_message(self, message):
         # For now just print - in real version would update lock area
