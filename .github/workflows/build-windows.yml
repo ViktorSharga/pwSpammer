@@ -24,7 +24,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller pywin32 psutil
+        pip install -r requirements.txt
     
     - name: Build with PyInstaller
       run: |

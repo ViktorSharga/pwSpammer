@@ -5,16 +5,35 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 # Collect all data files and hidden imports for Windows APIs
 hiddenimports = [
+    # Windows API modules
     'win32gui',
     'win32api', 
     'win32con',
     'win32process',
+    
+    # Process utilities
     'psutil',
     'psutil._psutil_windows',
     'psutil._pswindows',
+    
+    # System modules
     'ctypes',
     'ctypes.wintypes',
     '_ctypes',
+    
+    # GUI modules  
+    'tkinter.ttk',
+    'tkinter.messagebox',
+    'tkinter.filedialog',
+    
+    # File system
+    'pathlib',
+    
+    # Standard library modules
+    'json',
+    'threading',
+    'platform',
+    'traceback',
     'logging.handlers',
 ]
 
