@@ -41,6 +41,19 @@ class TestSpammerTab(unittest.TestCase):
             self.assertIn(member, self.app.selected_recipients)
             self.assertTrue(self.app.selected_recipients[member].get())
     
+    def test_select_all_recipients(self):
+        self.app.refresh_recipients_display()
+        # First unselect all to ensure clean state
+        self.app.unselect_all_recipients()
+        
+        # Then select all
+        self.app.select_all_recipients()
+        
+        for var in self.app.selected_recipients.values():
+            self.assertTrue(var.get())
+        
+        self.assertIn("3 recipients selected", self.app.recipients_count_label['text'])
+    
     def test_unselect_all_recipients(self):
         self.app.refresh_recipients_display()
         self.app.unselect_all_recipients()

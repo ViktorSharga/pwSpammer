@@ -293,6 +293,7 @@ class InGameChatHelper:
         recipients_control_frame = ttk.Frame(recipient_frame)
         recipients_control_frame.pack(fill='x', pady=(0, 10))
         
+        ttk.Button(recipients_control_frame, text="Select All", command=self.select_all_recipients).pack(side='left', padx=(0, 5))
         ttk.Button(recipients_control_frame, text="Unselect All", command=self.unselect_all_recipients).pack(side='left')
         self.recipients_count_label = ttk.Label(recipients_control_frame, text="0 recipients selected")
         self.recipients_count_label.pack(side='right')
@@ -711,6 +712,11 @@ class InGameChatHelper:
     
     def on_recipients_frame_configure(self, event):
         self.recipients_canvas.configure(scrollregion=self.recipients_canvas.bbox('all'))
+    
+    def select_all_recipients(self):
+        for var in self.selected_recipients.values():
+            var.set(True)
+        self.update_recipients_count()
     
     def unselect_all_recipients(self):
         for var in self.selected_recipients.values():
