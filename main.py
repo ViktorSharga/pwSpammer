@@ -74,11 +74,14 @@ class InGameChatHelper:
         list_container = ttk.Frame(self.memberlist_frame)
         list_container.pack(fill='both', expand=True, padx=10, pady=5)
         
-        # Center the list with fixed width
-        list_frame = ttk.Frame(list_container)
-        list_frame.pack(anchor='center', pady=10)
+        # Center the list and buttons group
+        list_and_buttons_frame = ttk.Frame(list_container)
+        list_and_buttons_frame.pack(anchor='center', pady=10)
         
         # Scrollable listbox with fixed width
+        list_frame = ttk.Frame(list_and_buttons_frame)
+        list_frame.pack()
+        
         self.members_listbox = tk.Listbox(list_frame, selectmode=tk.SINGLE, width=40, height=15)
         scrollbar = ttk.Scrollbar(list_frame, orient='vertical', command=self.members_listbox.yview)
         self.members_listbox.configure(yscrollcommand=scrollbar.set)
@@ -89,13 +92,13 @@ class InGameChatHelper:
         # Bind selection event
         self.members_listbox.bind('<<ListboxSelect>>', self.on_member_select)
         
-        # Bottom buttons frame - centered
-        bottom_buttons_frame = ttk.Frame(self.memberlist_frame)
-        bottom_buttons_frame.pack(pady=10)
+        # Bottom buttons frame - directly under the list
+        bottom_buttons_frame = ttk.Frame(list_and_buttons_frame)
+        bottom_buttons_frame.pack(pady=(10, 0))
         
-        # Bottom buttons - centered layout
-        ttk.Button(bottom_buttons_frame, text="SAVE", command=self.save_members).pack(side='left', padx=10)
-        ttk.Button(bottom_buttons_frame, text="LOAD", command=self.load_members).pack(side='left', padx=10)
+        # Bottom buttons - centered under the list
+        ttk.Button(bottom_buttons_frame, text="SAVE", command=self.save_members).pack(side='left', padx=5)
+        ttk.Button(bottom_buttons_frame, text="LOAD", command=self.load_members).pack(side='left', padx=5)
     
     def create_templates_tab(self):
         # Templates Tab
