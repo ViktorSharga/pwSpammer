@@ -1,0 +1,9 @@
+# Development dependencies for testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.1
+coverage>=7.3.0
+
+# Windows-specific dependencies (optional for testing on Windows)
+# pywin32>=306  # Uncomment if running tests on Windows
+# psutil>=5.9.5  # Uncomment if running tests on Windows
