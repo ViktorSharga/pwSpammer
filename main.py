@@ -723,13 +723,20 @@ class InGameChatHelper:
             messagebox.showwarning("Warning", "No message content")
             return
         
+        # Check connection and setup
+        if not self._validate_send_requirements():
+            return
+        
         # Get first recipient
         recipient = selected_members[0]
         template_name = self.template_combobox.get() if self.selected_template_index is not None else "Custom"
         
-        # Mock send (as per spec)
+        # Send message
         try:
-            self.mock_send_message(recipient, self.message_preview)
+            if WINDOWS_AVAILABLE and self.is_connected:
+                self.send_message(recipient, self.message_preview)
+            else:
+                self.mock_send_message(recipient, self.message_preview)
             
             # Unselect the recipient
             self.selected_recipients[recipient].set(False)
@@ -760,6 +767,10 @@ class InGameChatHelper:
             messagebox.showwarning("Warning", "No message content")
             return
         
+        # Check connection and setup
+        if not self._validate_send_requirements():
+            return
+        
         self.is_sending = True
         self.send_all_button.config(text="Stop")
         
@@ -775,15 +786,18 @@ class InGameChatHelper:
                 break
             
             try:
-                # Mock send
-                self.mock_send_message(member, self.message_preview)
+                # Send message
+                if WINDOWS_AVAILABLE and self.is_connected:
+                    self.send_message(member, self.message_preview)
+                else:
+                    self.mock_send_message(member, self.message_preview)
                 
                 # Update UI on main thread
                 self.root.after(0, lambda m=member: self.selected_recipients[m].set(False))
                 self.root.after(0, self.update_recipients_count)
                 self.root.after(0, lambda m=member, t=template_name: self.log_message(f"→ Sent {t} to {m}"))
                 
-                # 500ms delay
+                # 500ms delay between messages
                 time.sleep(0.5)
                 
             except Exception as e:
@@ -797,12 +811,148 @@ class InGameChatHelper:
         self.is_sending = False
         self.send_all_button.config(text="Send All")
     
+    def _validate_send_requirements(self):
+        """Validate that all requirements for sending are met"""
+        if not WINDOWS_AVAILABLE:
+            messagebox.showwarning("Warning", "Windows-specific features not available on this platform")
+            return False
+        
+        if not self.is_connected or not self.game_window_handle:
+            messagebox.showwarning("Warning", 
+                "Not connected to game window.\n\n"
+                "Please connect to the game using CTRL+SHIFT+1 hotkey while the game window is focused.")
+            return False
+        
+        if not self.coord1 or not self.coord2:
+            messagebox.showwarning("Warning", 
+                "Chat coordinates not set.\n\n"
+                "Please set both coordinates in the Setup tab before sending messages.")
+            return False
+        
+        # Verify the game window still exists
+        try:
+            if not win32gui.IsWindow(self.game_window_handle):
+                self.is_connected = False
+                self.update_connection_status()
+                messagebox.showerror("Error", "Game window no longer exists. Please reconnect.")
+                return False
+        except Exception:
+            messagebox.showerror("Error", "Cannot verify game window. Please reconnect.")
+            return False
+        
+        return True
+    
+    def send_message(self, recipient, message):
+        """Send a message to a recipient in the game"""
+        if not WINDOWS_AVAILABLE:
+            raise Exception("Windows-specific features not available on this platform")
+        
+        if not self.is_connected or not self.game_window_handle:
+            raise Exception("Not connected to game window")
+        
+        if not self.coord1 or not self.coord2:
+            raise Exception("Chat coordinates not set")
+        
+        # Step 1: Focus the game window
+        self._focus_game_window()
+        
+        # Step 2: Clear chat area
+        self.clear_chat_area()
+        
+        # Step 3: Send the message
+        self._type_message(f"/{recipient} {message}")
+        
+        # Step 4: Press Enter
+        self._send_enter_key()
+    
+    def _focus_game_window(self):
+        """Bring the game window into focus"""
+        if not WINDOWS_AVAILABLE:
+            return
+        
+        try:
+            # Check if window still exists
+            if not win32gui.IsWindow(self.game_window_handle):
+                raise Exception("Game window no longer exists")
+            
+            # Check if window is minimized and restore it
+            if win32gui.IsIconic(self.game_window_handle):
+                win32gui.ShowWindow(self.game_window_handle, win32con.SW_RESTORE)
+                time.sleep(0.1)  # Give time for window to restore
+            
+            # Bring window to front
+            win32gui.SetForegroundWindow(self.game_window_handle)
+            win32gui.BringWindowToTop(self.game_window_handle)
+            
+            # Additional focus attempts for stubborn windows
+            win32gui.SetActiveWindow(self.game_window_handle)
+            
+            # Give time for focus to take effect
+            time.sleep(0.2)
+            
+        except Exception as e:
+            raise Exception(f"Failed to focus game window: {str(e)}")
+    
+    def _type_message(self, text):
+        """Type a message using Windows API"""
+        if not WINDOWS_AVAILABLE:
+            return
+        
+        try:
+            # Ensure the window still has focus
+            current_window = win32gui.GetForegroundWindow()
+            if current_window != self.game_window_handle:
+                self._focus_game_window()
+            
+            # Use SendMessage with WM_CHAR for more reliable text input
+            for char in text:
+                char_code = ord(char)
+                # Send WM_CHAR message directly to the window
+                win32api.SendMessage(self.game_window_handle, win32con.WM_CHAR, char_code, 0)
+                time.sleep(0.01)  # Small delay between characters
+            
+        except Exception as e:
+            # Fallback to keyboard events if SendMessage fails
+            try:
+                for char in text:
+                    if char == ' ':
+                        vk_code = win32con.VK_SPACE
+                    elif char == '/':
+                        vk_code = 0xBF  # VK_OEM_2 (forward slash)
+                    elif char.isalnum():
+                        vk_code = ord(char.upper())
+                    else:
+                        # Skip special characters that might cause issues
+                        continue
+                    
+                    win32api.keybd_event(vk_code, 0, 0, 0)  # Key down
+                    win32api.keybd_event(vk_code, 0, win32con.KEYEVENTF_KEYUP, 0)  # Key up
+                    time.sleep(0.02)
+            except Exception as e2:
+                raise Exception(f"Failed to type message: {str(e2)}")
+    
+    def _send_enter_key(self):
+        """Send Enter key press"""
+        if not WINDOWS_AVAILABLE:
+            return
+        
+        try:
+            # Send Enter key
+            win32api.keybd_event(win32con.VK_RETURN, 0, 0, 0)  # Key down
+            time.sleep(0.05)
+            win32api.keybd_event(win32con.VK_RETURN, 0, win32con.KEYEVENTF_KEYUP, 0)  # Key up
+            
+        except Exception as e:
+            raise Exception(f"Failed to send Enter key: {str(e)}")
+    
+    # Keep the old method for backwards compatibility in tests
     def mock_send_message(self, recipient, message):
-        # Mock implementation - in real version this would:
-        # 1. Call ClearChatArea()
-        # 2. Send string f"/{recipient} {message}"
-        # 3. Send Enter key
-        pass
+        """Mock implementation for testing - delegates to real implementation"""
+        if WINDOWS_AVAILABLE and self.is_connected:
+            self.send_message(recipient, message)
+        else:
+            # Mock behavior for non-Windows or disconnected state
+            print(f"Mock: Would send '{message}' to {recipient}")
     
     def log_message(self, message):
         # For now just print - in real version would update lock area
