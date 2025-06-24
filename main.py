@@ -70,28 +70,32 @@ class InGameChatHelper:
         self.remove_button.pack(side='left', padx=2)
         ttk.Button(top_buttons_frame, text="Delete All", command=self.delete_all_members).pack(side='left', padx=2)
         
-        # Members list frame with scrollbar
-        list_frame = ttk.Frame(self.memberlist_frame)
-        list_frame.pack(fill='both', expand=True, padx=10, pady=5)
+        # Members list frame with constrained width
+        list_container = ttk.Frame(self.memberlist_frame)
+        list_container.pack(fill='both', expand=True, padx=10, pady=5)
         
-        # Scrollable listbox
-        self.members_listbox = tk.Listbox(list_frame, selectmode=tk.SINGLE)
+        # Center the list with fixed width
+        list_frame = ttk.Frame(list_container)
+        list_frame.pack(anchor='center', pady=10)
+        
+        # Scrollable listbox with fixed width
+        self.members_listbox = tk.Listbox(list_frame, selectmode=tk.SINGLE, width=40, height=15)
         scrollbar = ttk.Scrollbar(list_frame, orient='vertical', command=self.members_listbox.yview)
         self.members_listbox.configure(yscrollcommand=scrollbar.set)
         
-        self.members_listbox.pack(side='left', fill='both', expand=True)
+        self.members_listbox.pack(side='left', fill='y')
         scrollbar.pack(side='right', fill='y')
         
         # Bind selection event
         self.members_listbox.bind('<<ListboxSelect>>', self.on_member_select)
         
-        # Bottom buttons frame
+        # Bottom buttons frame - centered
         bottom_buttons_frame = ttk.Frame(self.memberlist_frame)
-        bottom_buttons_frame.pack(fill='x', padx=10, pady=5)
+        bottom_buttons_frame.pack(pady=10)
         
-        # Bottom buttons
+        # Bottom buttons - centered layout
         ttk.Button(bottom_buttons_frame, text="SAVE", command=self.save_members).pack(side='left', padx=10)
-        ttk.Button(bottom_buttons_frame, text="LOAD", command=self.load_members).pack(side='right', padx=10)
+        ttk.Button(bottom_buttons_frame, text="LOAD", command=self.load_members).pack(side='left', padx=10)
     
     def create_templates_tab(self):
         # Templates Tab
