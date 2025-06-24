@@ -559,8 +559,17 @@ class InGameChatHelper:
                 messagebox.showerror("Error", "Game window no longer exists")
                 return
             
+            # Check if window is minimized and restore it
+            if win32gui.IsIconic(self.game_window_handle):
+                win32gui.ShowWindow(self.game_window_handle, win32con.SW_RESTORE)
+                time.sleep(0.1)  # Give time for window to restore
+            
             # Bring window to front
             win32gui.SetForegroundWindow(self.game_window_handle)
+            
+            # Additional focus attempt for stubborn windows
+            win32gui.BringWindowToTop(self.game_window_handle)
+            
             messagebox.showinfo("Success", "Game window brought to focus")
             
         except Exception as e:
@@ -579,7 +588,13 @@ class InGameChatHelper:
         
         # Focus game window
         try:
+            # Check if window is minimized and restore it
+            if win32gui.IsIconic(self.game_window_handle):
+                win32gui.ShowWindow(self.game_window_handle, win32con.SW_RESTORE)
+                time.sleep(0.1)  # Give time for window to restore
+            
             win32gui.SetForegroundWindow(self.game_window_handle)
+            win32gui.BringWindowToTop(self.game_window_handle)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to focus game window: {str(e)}")
             return
@@ -659,7 +674,13 @@ class InGameChatHelper:
             return
         
         # Focus game window
+        # Check if window is minimized and restore it
+        if win32gui.IsIconic(self.game_window_handle):
+            win32gui.ShowWindow(self.game_window_handle, win32con.SW_RESTORE)
+            time.sleep(0.1)  # Give time for window to restore
+        
         win32gui.SetForegroundWindow(self.game_window_handle)
+        win32gui.BringWindowToTop(self.game_window_handle)
         time.sleep(0.1)
         
         # Click Coord2
