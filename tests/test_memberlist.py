@@ -11,10 +11,15 @@ from main import InGameChatHelper, MemberDialog
 class TestMemberListTab(unittest.TestCase):
     def setUp(self):
         self.root = tk.Tk()
-        self.app = InGameChatHelper(self.root)
+        self.root.withdraw()  # Hide window for headless testing
+        with patch('main.WINDOWS_AVAILABLE', False):
+            self.app = InGameChatHelper(self.root)
         
     def tearDown(self):
-        self.root.destroy()
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
     
     def test_is_duplicate_member(self):
         self.app.members = ["Alice", "Bob", "Charlie"]
@@ -138,9 +143,13 @@ class TestMemberListTab(unittest.TestCase):
 class TestMemberDialog(unittest.TestCase):
     def setUp(self):
         self.root = tk.Tk()
+        self.root.withdraw()  # Hide window for headless testing
         
     def tearDown(self):
-        self.root.destroy()
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
     
     def test_member_dialog_ok(self):
         with patch.object(tk.Toplevel, 'wait_window'):

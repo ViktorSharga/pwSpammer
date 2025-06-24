@@ -31,7 +31,9 @@ jobs:
     
     - name: Run tests with pytest
       run: |
-        python -m pytest tests/ -v --cov=main --cov-report=xml --cov-report=html
+        python -m pytest tests/ -v --cov=main --cov-report=xml --cov-report=html --timeout=300 -x
+      env:
+        PYTHONUNBUFFERED: 1
     
     - name: Upload coverage reports
       uses: actions/upload-artifact@v4

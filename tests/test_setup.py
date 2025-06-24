@@ -11,11 +11,15 @@ from main import InGameChatHelper, WINDOWS_AVAILABLE
 class TestSetupTab(unittest.TestCase):
     def setUp(self):
         self.root = tk.Tk()
+        self.root.withdraw()  # Hide window for headless testing
         with patch('main.WINDOWS_AVAILABLE', False):
             self.app = InGameChatHelper(self.root)
         
     def tearDown(self):
-        self.root.destroy()
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
     
     def test_initial_connection_state(self):
         self.assertFalse(self.app.is_connected)
@@ -158,9 +162,13 @@ class TestSetupTab(unittest.TestCase):
 class TestHotkeyAndWindowHandling(unittest.TestCase):
     def setUp(self):
         self.root = tk.Tk()
+        self.root.withdraw()  # Hide window for headless testing
         
     def tearDown(self):
-        self.root.destroy()
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
     
     @patch('main.WINDOWS_AVAILABLE', True)
     @patch('main.win32gui.GetForegroundWindow', return_value=12345)

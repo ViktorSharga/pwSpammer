@@ -12,12 +12,17 @@ from main import InGameChatHelper
 class TestIntegration(unittest.TestCase):
     def setUp(self):
         self.root = tk.Tk()
-        self.app = InGameChatHelper(self.root)
+        self.root.withdraw()  # Hide window for headless testing
+        with patch('main.WINDOWS_AVAILABLE', False):
+            self.app = InGameChatHelper(self.root)
         
     def tearDown(self):
         if hasattr(self.app, 'is_sending'):
             self.app.is_sending = False
-        self.root.destroy()
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
     
     def test_member_to_recipient_flow(self):
         # Add members

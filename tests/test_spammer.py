@@ -13,7 +13,9 @@ from main import InGameChatHelper, MessageEditDialog
 class TestSpammerTab(unittest.TestCase):
     def setUp(self):
         self.root = tk.Tk()
-        self.app = InGameChatHelper(self.root)
+        self.root.withdraw()  # Hide window for headless testing
+        with patch('main.WINDOWS_AVAILABLE', False):
+            self.app = InGameChatHelper(self.root)
         self.app.members = ["Alice", "Bob", "Charlie"]
         self.app.templates = [
             {'short_name': 'Template1', 'content': 'Hello!'},
@@ -25,7 +27,10 @@ class TestSpammerTab(unittest.TestCase):
             self.app.is_sending = False
         if hasattr(self.app, 'send_thread') and self.app.send_thread:
             self.app.send_thread = None
-        self.root.destroy()
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
     
     def test_refresh_recipients_display(self):
         self.app.refresh_recipients_display()
@@ -184,9 +189,13 @@ class TestSpammerTab(unittest.TestCase):
 class TestMessageEditDialog(unittest.TestCase):
     def setUp(self):
         self.root = tk.Tk()
+        self.root.withdraw()  # Hide window for headless testing
         
     def tearDown(self):
-        self.root.destroy()
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
     
     def test_message_edit_dialog_ok(self):
         with patch.object(tk.Toplevel, 'wait_window'):

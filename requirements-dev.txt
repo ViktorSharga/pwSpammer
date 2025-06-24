@@ -4,6 +4,7 @@ pytest-cov>=4.1.0
 pytest-mock>=3.11.1
 coverage>=7.3.0
 pytest-json-report>=1.5.0
+pytest-timeout>=2.2.0
 
 # Windows-specific dependencies (optional for testing on Windows)
 # pywin32>=306  # Uncomment if running tests on Windows

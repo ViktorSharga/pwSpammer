@@ -11,10 +11,15 @@ from main import InGameChatHelper, TemplateDialog
 class TestTemplatesTab(unittest.TestCase):
     def setUp(self):
         self.root = tk.Tk()
-        self.app = InGameChatHelper(self.root)
+        self.root.withdraw()  # Hide window for headless testing
+        with patch('main.WINDOWS_AVAILABLE', False):
+            self.app = InGameChatHelper(self.root)
         
     def tearDown(self):
-        self.root.destroy()
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
     
     def test_add_template(self):
         with patch('main.TemplateDialog') as mock_dialog:
@@ -97,9 +102,13 @@ class TestTemplatesTab(unittest.TestCase):
 class TestTemplateDialog(unittest.TestCase):
     def setUp(self):
         self.root = tk.Tk()
+        self.root.withdraw()  # Hide window for headless testing
         
     def tearDown(self):
-        self.root.destroy()
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
     
     def test_template_dialog_ok(self):
         with patch.object(tk.Toplevel, 'wait_window'):
