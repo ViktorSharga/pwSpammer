@@ -76,7 +76,7 @@ class TestSetupTab(unittest.TestCase):
         mock_error.assert_called_with("Error", "Not connected to game window")
     
     @patch('main.WINDOWS_AVAILABLE', True)
-    @patch('main.win32gui.IsWindow', return_value=False)
+    @patch('win32gui.IsWindow', return_value=False)
     @patch('main.messagebox.showerror')
     def test_test_game_connection_window_gone(self, mock_error, mock_is_window):
         self.app.is_connected = True
@@ -88,10 +88,10 @@ class TestSetupTab(unittest.TestCase):
         mock_error.assert_called_with("Error", "Game window no longer exists")
     
     @patch('main.WINDOWS_AVAILABLE', True)
-    @patch('main.win32gui.IsWindow', return_value=True)
-    @patch('main.win32gui.IsIconic', return_value=False)
-    @patch('main.win32gui.SetForegroundWindow')
-    @patch('main.win32gui.BringWindowToTop')
+    @patch('win32gui.IsWindow', return_value=True)
+    @patch('win32gui.IsIconic', return_value=False)
+    @patch('win32gui.SetForegroundWindow')
+    @patch('win32gui.BringWindowToTop')
     @patch('main.messagebox.showinfo')
     def test_test_game_connection_success(self, mock_info, mock_bring, mock_foreground, mock_iconic, mock_is_window):
         self.app.is_connected = True
@@ -197,10 +197,10 @@ class TestHotkeyAndWindowHandling(unittest.TestCase):
             pass
     
     @patch('main.WINDOWS_AVAILABLE', True)
-    @patch('main.win32gui.GetForegroundWindow', return_value=12345)
-    @patch('main.win32gui.GetWindowText', return_value="Asgard Perfect World - Character")
-    @patch('main.win32process.GetWindowThreadProcessId', return_value=(None, 54321))
-    @patch('main.psutil.Process')
+    @patch('win32gui.GetForegroundWindow', return_value=12345)
+    @patch('win32gui.GetWindowText', return_value="Asgard Perfect World - Character")
+    @patch('win32process.GetWindowThreadProcessId', return_value=(None, 54321))
+    @patch('psutil.Process')
     @patch('main.messagebox.showinfo')
     def test_handle_hotkey_success(self, mock_info, mock_process, mock_thread_id, 
                                    mock_window_text, mock_foreground):
@@ -220,10 +220,10 @@ class TestHotkeyAndWindowHandling(unittest.TestCase):
             mock_info.assert_called_once()
     
     @patch('main.WINDOWS_AVAILABLE', True)
-    @patch('main.win32gui.GetForegroundWindow', return_value=12345)
-    @patch('main.win32gui.GetWindowText', return_value="Wrong Window")
-    @patch('main.win32process.GetWindowThreadProcessId', return_value=(None, 54321))
-    @patch('main.psutil.Process')
+    @patch('win32gui.GetForegroundWindow', return_value=12345)
+    @patch('win32gui.GetWindowText', return_value="Wrong Window")
+    @patch('win32process.GetWindowThreadProcessId', return_value=(None, 54321))
+    @patch('psutil.Process')
     @patch('main.messagebox.showerror')
     def test_handle_hotkey_wrong_window(self, mock_error, mock_process, mock_thread_id,
                                        mock_window_text, mock_foreground):
@@ -242,10 +242,10 @@ class TestHotkeyAndWindowHandling(unittest.TestCase):
             self.assertIn("Asgard Perfect World", mock_error.call_args[0][1])
     
     @patch('main.WINDOWS_AVAILABLE', True)
-    @patch('main.win32gui.GetForegroundWindow', return_value=12345)
-    @patch('main.win32gui.GetWindowText', return_value="Asgard Perfect World")
-    @patch('main.win32process.GetWindowThreadProcessId', return_value=(None, 54321))
-    @patch('main.psutil.Process')
+    @patch('win32gui.GetForegroundWindow', return_value=12345)
+    @patch('win32gui.GetWindowText', return_value="Asgard Perfect World")
+    @patch('win32process.GetWindowThreadProcessId', return_value=(None, 54321))
+    @patch('psutil.Process')
     @patch('main.messagebox.showerror')
     def test_handle_hotkey_wrong_process(self, mock_error, mock_process, mock_thread_id,
                                         mock_window_text, mock_foreground):

@@ -6,6 +6,9 @@ import threading
 import platform
 import os
 from pathlib import Path
+import sys
+import logging
+import traceback
 
 # Platform-specific imports
 if platform.system() == "Windows":
@@ -20,6 +23,56 @@ if platform.system() == "Windows":
         WINDOWS_AVAILABLE = False
 else:
     WINDOWS_AVAILABLE = False
+
+# Setup logging
+def setup_logging():
+    """Setup logging for debugging, especially in EXE builds"""
+    log_dir = Path.home() / ".InGameChatHelper" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    log_file = log_dir / f"debug_{time.strftime('%Y%m%d_%H%M%S')}.log"
+    
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file, encoding='utf-8'),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+    
+    logger = logging.getLogger(__name__)
+    
+    # Log startup information
+    logger.info("=" * 80)
+    logger.info("InGameChatHelper Starting")
+    logger.info(f"Python Version: {sys.version}")
+    logger.info(f"Platform: {platform.platform()}")
+    logger.info(f"Executable: {sys.executable}")
+    logger.info(f"Frozen: {getattr(sys, 'frozen', False)}")
+    logger.info(f"Windows Available: {WINDOWS_AVAILABLE}")
+    
+    if getattr(sys, 'frozen', False):
+        logger.info(f"Running as frozen EXE")
+        logger.info(f"Executable path: {sys.executable}")
+        logger.info(f"Bundle dir: {getattr(sys, '_MEIPASS', 'Not available')}")
+    
+    # Log Windows-specific information
+    if WINDOWS_AVAILABLE:
+        try:
+            import win32api
+            logger.info(f"win32api module loaded successfully")
+            # Test GetAsyncKeyState
+            test_state = win32api.GetAsyncKeyState(0x01)  # Test with left mouse button
+            logger.info(f"GetAsyncKeyState test result: {test_state}")
+        except Exception as e:
+            logger.error(f"Error testing win32api: {e}")
+            logger.error(traceback.format_exc())
+    
+    return logger
+
+# Initialize logging
+logger = setup_logging()
 
 class DataManager:
     """Handles automatic persistence of application data"""
@@ -961,48 +1014,202 @@ class InGameChatHelper:
     # Setup Tab Methods
     def setup_hotkeys(self):
         if WINDOWS_AVAILABLE:
-            # Register global hotkey CTRL+SHIFT+1
-            threading.Thread(target=self.hotkey_listener, daemon=True).start()
+            logger.info("Setting up hotkeys...")
+            try:
+                # Try alternative hotkey registration first
+                if not self.setup_registerhotkey():
+                    logger.warning("RegisterHotKey failed, falling back to GetAsyncKeyState")
+                    # Fallback to GetAsyncKeyState method
+                    hotkey_thread = threading.Thread(target=self.hotkey_listener, daemon=True, name="HotkeyListener")
+                    hotkey_thread.start()
+                    logger.info("Hotkey thread started successfully")
+            except Exception as e:
+                logger.error(f"Failed to start hotkey thread: {e}")
+                logger.error(traceback.format_exc())
+        else:
+            logger.warning("Windows not available, hotkeys disabled")
+    
+    def setup_registerhotkey(self):
+        """Alternative hotkey registration using Windows RegisterHotKey API"""
+        if not WINDOWS_AVAILABLE:
+            return False
+        
+        try:
+            import ctypes
+            from ctypes import wintypes
+            
+            # Windows API constants
+            WM_HOTKEY = 0x0312
+            MOD_CONTROL = 0x0002
+            MOD_SHIFT = 0x0004
+            VK_1 = 0x31
+            
+            # Get window handle for messages
+            hwnd = ctypes.windll.user32.GetActiveWindow()
+            if not hwnd:
+                # Create a dummy window for receiving messages
+                hwnd = self.root.winfo_id()
+            
+            logger.info(f"Using window handle {hwnd} for RegisterHotKey")
+            
+            # Register CTRL+SHIFT+1 hotkey (ID = 1)
+            result = ctypes.windll.user32.RegisterHotKeyW(
+                hwnd,  # Window handle
+                1,     # Hotkey ID
+                MOD_CONTROL | MOD_SHIFT,  # Modifiers
+                VK_1   # Virtual key code for '1'
+            )
+            
+            if result:
+                logger.info("RegisterHotKey successful, starting message pump")
+                self.hotkey_hwnd = hwnd
+                self.hotkey_id = 1
+                
+                # Start message pump thread
+                pump_thread = threading.Thread(target=self.message_pump, daemon=True, name="MessagePump")
+                pump_thread.start()
+                return True
+            else:
+                error_code = ctypes.windll.kernel32.GetLastError()
+                logger.error(f"RegisterHotKey failed with error code: {error_code}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Exception in setup_registerhotkey: {e}")
+            logger.error(traceback.format_exc())
+            return False
+    
+    def message_pump(self):
+        """Message pump for processing WM_HOTKEY messages"""
+        if not WINDOWS_AVAILABLE:
+            return
+        
+        try:
+            import ctypes
+            from ctypes import wintypes, byref
+            
+            WM_HOTKEY = 0x0312
+            
+            # Message structure
+            class MSG(ctypes.Structure):
+                _fields_ = [
+                    ("hwnd", wintypes.HWND),
+                    ("message", wintypes.UINT),
+                    ("wParam", wintypes.WPARAM),
+                    ("lParam", wintypes.LPARAM),
+                    ("time", wintypes.DWORD),
+                    ("pt", wintypes.POINT)
+                ]
+            
+            logger.info("Message pump started")
+            msg = MSG()
+            
+            while True:
+                try:
+                    # Get message
+                    result = ctypes.windll.user32.GetMessageW(byref(msg), None, 0, 0)
+                    
+                    if result == -1:  # Error
+                        logger.error("GetMessage returned error")
+                        break
+                    elif result == 0:  # WM_QUIT
+                        logger.info("Received WM_QUIT, stopping message pump")
+                        break
+                    
+                    # Check for hotkey message
+                    if msg.message == WM_HOTKEY and msg.wParam == self.hotkey_id:
+                        logger.info("RegisterHotKey detected CTRL+SHIFT+1!")
+                        self.root.after(0, self.handle_hotkey)
+                    
+                    # Dispatch message
+                    ctypes.windll.user32.TranslateMessage(byref(msg))
+                    ctypes.windll.user32.DispatchMessageW(byref(msg))
+                    
+                except Exception as e:
+                    logger.error(f"Error in message pump: {e}")
+                    time.sleep(0.1)
+                    
+        except Exception as e:
+            logger.error(f"Fatal error in message_pump: {e}")
+            logger.error(traceback.format_exc())
+    
+    def cleanup_hotkeys(self):
+        """Cleanup registered hotkeys"""
+        if WINDOWS_AVAILABLE and hasattr(self, 'hotkey_hwnd') and hasattr(self, 'hotkey_id'):
+            try:
+                import ctypes
+                result = ctypes.windll.user32.UnregisterHotKey(self.hotkey_hwnd, self.hotkey_id)
+                if result:
+                    logger.info("Hotkey unregistered successfully")
+                else:
+                    logger.warning("Failed to unregister hotkey")
+            except Exception as e:
+                logger.error(f"Error cleaning up hotkeys: {e}")
     
     def hotkey_listener(self):
         if not WINDOWS_AVAILABLE:
             return
         
+        logger.info("Hotkey listener thread started")
+        error_count = 0
+        
         while True:
             try:
                 # Check for CTRL+SHIFT+1 hotkey
-                if (win32api.GetAsyncKeyState(win32con.VK_CONTROL) & 0x8000 and
-                    win32api.GetAsyncKeyState(win32con.VK_SHIFT) & 0x8000 and
-                    win32api.GetAsyncKeyState(0x31) & 0x8000):  # '1' key
-                    
+                ctrl_state = win32api.GetAsyncKeyState(win32con.VK_CONTROL) & 0x8000
+                shift_state = win32api.GetAsyncKeyState(win32con.VK_SHIFT) & 0x8000
+                one_state = win32api.GetAsyncKeyState(0x31) & 0x8000  # '1' key
+                
+                if ctrl_state and shift_state and one_state:
+                    logger.info("Hotkey CTRL+SHIFT+1 detected!")
                     self.root.after(0, self.handle_hotkey)
                     time.sleep(0.5)  # Prevent multiple triggers
                 
                 time.sleep(0.1)
-            except Exception:
+                error_count = 0  # Reset error count on success
+                
+            except Exception as e:
+                error_count += 1
+                logger.error(f"Error in hotkey listener (count: {error_count}): {e}")
+                if error_count < 5:
+                    logger.error(traceback.format_exc())
                 time.sleep(1)
+                
+                # If too many errors, try to reinitialize
+                if error_count > 10:
+                    logger.error("Too many errors in hotkey listener, stopping")
+                    break
     
     def handle_hotkey(self):
         if not WINDOWS_AVAILABLE:
             messagebox.showerror("Error", "Windows-specific features not available")
             return
         
+        logger.info("Handling hotkey press...")
+        
         try:
             # Get the currently focused window
             hwnd = win32gui.GetForegroundWindow()
+            logger.info(f"Foreground window handle: {hwnd}")
+            
             if not hwnd:
                 messagebox.showerror("Error", "No window is currently focused")
                 return
             
             # Get window title and process info
             window_title = win32gui.GetWindowText(hwnd)
+            logger.info(f"Window title: {window_title}")
+            
             _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            logger.info(f"Process ID: {pid}")
             
             # Get process name
             try:
                 process = psutil.Process(pid)
                 process_name = process.name()
-            except:
+                logger.info(f"Process name: {process_name}")
+            except Exception as e:
+                logger.error(f"Could not get process information: {e}")
                 messagebox.showerror("Error", "Could not get process information")
                 return
             
@@ -1402,4 +1609,15 @@ class MessageEditDialog:
 if __name__ == "__main__":
     root = tk.Tk()
     app = InGameChatHelper(root)
+    
+    # Setup cleanup on window close
+    def on_closing():
+        try:
+            app.cleanup_hotkeys()
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
+        finally:
+            root.destroy()
+    
+    root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()

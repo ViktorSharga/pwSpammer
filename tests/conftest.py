@@ -36,22 +36,19 @@ if sys.platform != "win32":
 @pytest.fixture(scope="session", autouse=True)
 def setup_headless_tk():
     """Setup Tkinter for headless testing on CI"""
-    if 'CI' in os.environ or 'GITHUB_ACTIONS' in os.environ:
-        # Mock Tkinter for CI environments
-        original_tk_root = tk.Tk
-        
-        def mock_tk_root(*args, **kwargs):
-            root = original_tk_root()
-            root.withdraw()  # Hide the window
-            # Override mainloop to prevent hanging
-            root.mainloop = Mock()
-            # Override wait_window to prevent hanging
-            root.wait_window = Mock()
-            return root
-        
-        with patch('tkinter.Tk', side_effect=mock_tk_root):
-            yield
-    else:
+    # Always run headless in tests
+    original_tk_root = tk.Tk
+    
+    def mock_tk_root(*args, **kwargs):
+        root = original_tk_root()
+        root.withdraw()  # Hide the window
+        # Override mainloop to prevent hanging
+        root.mainloop = Mock()
+        # Override wait_window to prevent hanging
+        root.wait_window = Mock()
+        return root
+    
+    with patch('tkinter.Tk', side_effect=mock_tk_root):
         yield
 
 @pytest.fixture(autouse=True)
