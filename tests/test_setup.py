@@ -28,7 +28,7 @@ class TestSetupTab(unittest.TestCase):
         self.assertIsNone(self.app.coord1)
         self.assertIsNone(self.app.coord2)
         self.assertEqual(self.app.status_label['text'], "UNCONNECTED")
-        self.assertEqual(self.app.status_label['foreground'], 'red')
+        self.assertEqual(str(self.app.status_label['foreground']), 'red')
     
     def test_update_connection_status_connected(self):
         self.app.is_connected = True
@@ -36,7 +36,7 @@ class TestSetupTab(unittest.TestCase):
         self.app.update_connection_status()
         
         self.assertEqual(self.app.status_label['text'], "CONNECTED")
-        self.assertEqual(self.app.status_label['foreground'], 'green')
+        self.assertEqual(str(self.app.status_label['foreground']), 'green')
         self.assertIn("12345", self.app.pid_label['text'])
         self.assertEqual(str(self.app.test_connection_button['state']), 'normal')
     
@@ -45,7 +45,7 @@ class TestSetupTab(unittest.TestCase):
         self.app.update_connection_status()
         
         self.assertEqual(self.app.status_label['text'], "UNCONNECTED")
-        self.assertEqual(self.app.status_label['foreground'], 'red')
+        self.assertEqual(str(self.app.status_label['foreground']), 'red')
         self.assertEqual(self.app.pid_label['text'], "")
         self.assertEqual(str(self.app.test_connection_button['state']), 'disabled')
     

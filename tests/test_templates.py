@@ -154,7 +154,7 @@ class TestTemplateDialog(unittest.TestCase):
             dialog.content_text.insert('1.0', "x" * 301)
             dialog.on_text_change(None)
             self.assertIn("301/300", dialog.char_count_label['text'])
-            self.assertEqual(dialog.char_count_label['foreground'], 'red')
+            self.assertEqual(str(dialog.char_count_label['foreground']), 'red')
 
 
 if __name__ == '__main__':
