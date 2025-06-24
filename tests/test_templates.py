@@ -80,8 +80,8 @@ class TestTemplatesTab(unittest.TestCase):
         self.app.select_template_tile(1)
         
         self.assertEqual(self.app.selected_template_tile, 1)
-        self.assertEqual(self.app.edit_template_button['state'], str(tk.NORMAL))
-        self.assertEqual(self.app.remove_template_button['state'], str(tk.NORMAL))
+        self.assertEqual(str(self.app.edit_template_button['state']), 'normal')
+        self.assertEqual(str(self.app.remove_template_button['state']), 'normal')
     
     def test_update_tile_selection(self):
         self.app.templates = [

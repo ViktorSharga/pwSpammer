@@ -77,8 +77,8 @@ class TestIntegration(unittest.TestCase):
         
         # Check send buttons are enabled
         self.app.update_recipients_count()
-        self.assertEqual(self.app.send_next_button['state'], str(tk.NORMAL))
-        self.assertEqual(self.app.send_all_button['state'], str(tk.NORMAL))
+        self.assertEqual(str(self.app.send_next_button['state']), 'normal')
+        self.assertEqual(str(self.app.send_all_button['state']), 'normal')
         
         # Send to one recipient
         with patch.object(self.app, 'mock_send_message') as mock_send, \
@@ -184,7 +184,7 @@ class TestIntegration(unittest.TestCase):
         self.app.update_test_button_state()
         
         # Test button should be enabled
-        self.assertEqual(self.app.test_clear_button['state'], str(tk.NORMAL))
+        self.assertEqual(str(self.app.test_clear_button['state']), 'normal')
         
         # Labels should show coordinates
         self.assertIn("(100, 200)", self.app.coord1_label['text'])

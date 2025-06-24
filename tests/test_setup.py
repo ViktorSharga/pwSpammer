@@ -38,7 +38,7 @@ class TestSetupTab(unittest.TestCase):
         self.assertEqual(self.app.status_label['text'], "CONNECTED")
         self.assertEqual(self.app.status_label['foreground'], 'green')
         self.assertIn("12345", self.app.pid_label['text'])
-        self.assertEqual(self.app.test_connection_button['state'], str(tk.NORMAL))
+        self.assertEqual(str(self.app.test_connection_button['state']), 'normal')
     
     def test_update_connection_status_disconnected(self):
         self.app.is_connected = False
@@ -47,26 +47,26 @@ class TestSetupTab(unittest.TestCase):
         self.assertEqual(self.app.status_label['text'], "UNCONNECTED")
         self.assertEqual(self.app.status_label['foreground'], 'red')
         self.assertEqual(self.app.pid_label['text'], "")
-        self.assertEqual(self.app.test_connection_button['state'], str(tk.DISABLED))
+        self.assertEqual(str(self.app.test_connection_button['state']), 'disabled')
     
     def test_update_test_button_state(self):
         # Test with no connection
         self.app.is_connected = False
         self.app.update_test_button_state()
-        self.assertEqual(self.app.test_clear_button['state'], str(tk.DISABLED))
+        self.assertEqual(str(self.app.test_clear_button['state']), 'disabled')
         
         # Test with connection but no coordinates
         self.app.is_connected = True
         self.app.coord1 = None
         self.app.coord2 = None
         self.app.update_test_button_state()
-        self.assertEqual(self.app.test_clear_button['state'], str(tk.DISABLED))
+        self.assertEqual(str(self.app.test_clear_button['state']), 'disabled')
         
         # Test with connection and coordinates
         self.app.coord1 = (100, 200)
         self.app.coord2 = (300, 400)
         self.app.update_test_button_state()
-        self.assertEqual(self.app.test_clear_button['state'], str(tk.NORMAL))
+        self.assertEqual(str(self.app.test_clear_button['state']), 'normal')
     
     @patch('main.WINDOWS_AVAILABLE', True)
     @patch('main.messagebox.showerror')
