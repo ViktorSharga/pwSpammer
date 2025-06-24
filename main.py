@@ -221,6 +221,10 @@ class InGameChatHelper:
             warning_label.pack()
     
     # MemberList Tab Methods
+    def is_duplicate_member(self, member_name):
+        """Check if member name already exists (case-insensitive)"""
+        return member_name.lower() in [member.lower() for member in self.members]
+    
     def on_member_select(self, event):
         selection = self.members_listbox.curselection()
         if selection:
@@ -234,10 +238,13 @@ class InGameChatHelper:
     
     def add_from_clipboard(self):
         try:
-            clipboard_content = self.root.clipboard_get()
+            clipboard_content = self.root.clipboard_get().strip()
             if len(clipboard_content) <= 100:
-                self.members.append(clipboard_content)
-                self.refresh_members_list()
+                if self.is_duplicate_member(clipboard_content):
+                    messagebox.showwarning("Warning", f"Member '{clipboard_content}' already exists")
+                else:
+                    self.members.append(clipboard_content)
+                    self.refresh_members_list()
             else:
                 messagebox.showwarning("Warning", "Clipboard content exceeds 100 characters limit")
         except tk.TclError:
@@ -246,8 +253,11 @@ class InGameChatHelper:
     def add_member(self):
         dialog = MemberDialog(self.root, "Add Member")
         if dialog.result:
-            self.members.append(dialog.result)
-            self.refresh_members_list()
+            if self.is_duplicate_member(dialog.result):
+                messagebox.showwarning("Warning", f"Member '{dialog.result}' already exists")
+            else:
+                self.members.append(dialog.result)
+                self.refresh_members_list()
     
     def edit_member(self):
         if self.selected_member_index is not None:
@@ -298,9 +308,34 @@ class InGameChatHelper:
         if file_path:
             try:
                 with open(file_path, 'r') as f:
-                    self.members = json.load(f)
+                    loaded_members = json.load(f)
+                
+                # Filter out duplicates (case-insensitive)
+                new_members = []
+                duplicates = []
+                existing_lower = [member.lower() for member in self.members]
+                
+                for member in loaded_members:
+                    member = member.strip()
+                    if member.lower() not in existing_lower and member.lower() not in [m.lower() for m in new_members]:
+                        new_members.append(member)
+                        existing_lower.append(member.lower())
+                    else:
+                        duplicates.append(member)
+                
+                # Add new members to existing list
+                self.members.extend(new_members)
                 self.refresh_members_list()
-                messagebox.showinfo("Success", "Members loaded successfully")
+                
+                # Show result message
+                if duplicates:
+                    messagebox.showinfo("Success", 
+                        f"Loaded {len(new_members)} new members.\n"
+                        f"Skipped {len(duplicates)} duplicates: {', '.join(duplicates[:5])}"
+                        f"{'...' if len(duplicates) > 5 else ''}")
+                else:
+                    messagebox.showinfo("Success", f"Loaded {len(new_members)} members successfully")
+                    
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load: {str(e)}")
     
