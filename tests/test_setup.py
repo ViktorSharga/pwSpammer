@@ -120,16 +120,42 @@ class TestSetupTab(unittest.TestCase):
         self.app.is_connected = True
         self.app.game_window_handle = 12345
         
-        # Mock the overlay creation
-        with patch.object(self.app, 'create_coordinate_overlay') as mock_overlay:
-            self.app.set_coordinate(1)
-            mock_overlay.assert_called_once()
-            
-            # Simulate setting coordinate
-            self.app.coord1 = (100, 200)
-            self.app.coord1_label.config(text=f"Coord1: (100, 200)")
-            
-            self.assertIn("(100, 200)", self.app.coord1_label['text'])
+        # Mock the entire win32gui module by injecting it into main's globals
+        import main
+        mock_win32gui = Mock()
+        mock_win32gui.IsIconic.return_value = False
+        mock_win32con = Mock()
+        mock_win32con.SW_RESTORE = 9
+        
+        original_win32gui = getattr(main, 'win32gui', None)
+        original_win32con = getattr(main, 'win32con', None)
+        main.win32gui = mock_win32gui
+        main.win32con = mock_win32con
+        
+        try:
+            with patch('time.sleep'), \
+                 patch.object(self.app, 'create_coordinate_overlay') as mock_overlay, \
+                 patch.object(self.app.root, 'withdraw'):
+                
+                # Test the method
+                self.app.set_coordinate(1)
+                mock_overlay.assert_called_once()
+                
+                # Simulate setting coordinate
+                self.app.coord1 = (100, 200)
+                self.app.coord1_label.config(text=f"Coord1: (100, 200)")
+                
+                self.assertIn("(100, 200)", self.app.coord1_label['text'])
+        finally:
+            # Clean up the injected mocks
+            if original_win32gui is not None:
+                main.win32gui = original_win32gui
+            elif hasattr(main, 'win32gui'):
+                delattr(main, 'win32gui')
+            if original_win32con is not None:
+                main.win32con = original_win32con
+            elif hasattr(main, 'win32con'):
+                delattr(main, 'win32con')
     
     @patch('main.WINDOWS_AVAILABLE', True)
     @patch('main.messagebox.showerror')

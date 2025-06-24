@@ -93,10 +93,10 @@ class TestTemplatesTab(unittest.TestCase):
         if tiles:
             initial_relief = tiles[0]['relief']
             self.app.update_tile_selection(0, True)
-            self.assertEqual(tiles[0]['relief'], 'raised')
+            self.assertEqual(str(tiles[0]['relief']), 'raised')
             
             self.app.update_tile_selection(0, False)
-            self.assertEqual(tiles[0]['relief'], 'solid')
+            self.assertEqual(str(tiles[0]['relief']), 'solid')
 
 
 class TestTemplateDialog(unittest.TestCase):
