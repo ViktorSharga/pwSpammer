@@ -918,10 +918,62 @@ class InGameChatHelper:
         # Step 2: Clear chat area
         self.clear_chat_area()
         
-        # Step 3: Send the message
+        # Step 3: Add a small delay to ensure input field is ready
+        time.sleep(0.1)
+        
+        # Step 4: Send the message
         self._type_message(f"/{recipient} {message}")
         
-        # Step 4: Press Enter
+        # Step 5: Press Enter
+        self._send_enter_key()
+    
+    def send_message_debug(self, recipient, message):
+        """Debug version of send_message with detailed logging"""
+        if not WINDOWS_AVAILABLE:
+            raise Exception("Windows-specific features not available on this platform")
+        
+        if not self.is_connected or not self.game_window_handle:
+            raise Exception("Not connected to game window")
+        
+        if not self.coord1 or not self.coord2:
+            raise Exception("Chat coordinates not set")
+        
+        formatted_message = f"/{recipient} {message}"
+        print(f"DEBUG: About to send: '{formatted_message}'")
+        
+        # Step 1: Focus the game window
+        print("DEBUG: Focusing game window...")
+        self._focus_game_window()
+        
+        # Step 2: SKIP clear chat area for testing
+        print("DEBUG: Skipping clear_chat_area for testing...")
+        
+        # Step 3: Add delay
+        print("DEBUG: Waiting for input readiness...")
+        time.sleep(0.2)
+        
+        # Step 4: Send the message
+        print(f"DEBUG: Typing message: '{formatted_message}'")
+        self._type_message(formatted_message)
+        
+        # Step 5: Press Enter
+        print("DEBUG: Sending Enter key...")
+        self._send_enter_key()
+        
+        print("DEBUG: Message sending complete!")
+    
+    def send_message_minimal(self, recipient, message):
+        """Minimal version - just focus and type, no clearing"""
+        if not WINDOWS_AVAILABLE:
+            raise Exception("Windows-specific features not available on this platform")
+        
+        if not self.is_connected or not self.game_window_handle:
+            raise Exception("Not connected to game window")
+        
+        # Just focus and type - no coordinate clicking
+        self._focus_game_window()
+        time.sleep(0.1)
+        self._type_message(f"/{recipient} {message}")
         self._send_enter_key()
     
     def _focus_game_window(self):
