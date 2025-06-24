@@ -79,15 +79,25 @@ class TestSendFunctionality(unittest.TestCase):
         mock_win32gui = Mock()
         mock_win32gui.IsWindow.return_value = False
         
-        with patch.object(main, 'WINDOWS_AVAILABLE', True), \
-             patch.object(main, 'win32gui', mock_win32gui), \
-             patch('main.messagebox.showerror') as mock_error, \
-             patch.object(self.app, 'update_connection_status') as mock_update:
-            result = self.app._validate_send_requirements()
-            self.assertFalse(result)
-            self.assertFalse(self.app.is_connected)
-            mock_update.assert_called_once()
-            mock_error.assert_called_once()
+        # Inject win32gui into main module temporarily  
+        original_win32gui = getattr(main, 'win32gui', None)
+        main.win32gui = mock_win32gui
+        
+        try:
+            with patch.object(main, 'WINDOWS_AVAILABLE', True), \
+                 patch('main.messagebox.showerror') as mock_error, \
+                 patch.object(self.app, 'update_connection_status') as mock_update:
+                result = self.app._validate_send_requirements()
+                self.assertFalse(result)
+                self.assertFalse(self.app.is_connected)
+                mock_update.assert_called_once()
+                mock_error.assert_called_once()
+        finally:
+            # Restore original state
+            if original_win32gui is not None:
+                main.win32gui = original_win32gui
+            elif hasattr(main, 'win32gui'):
+                delattr(main, 'win32gui')
     
     def test_validate_send_requirements_success(self):
         """Test successful validation"""
@@ -302,30 +312,56 @@ class TestSendMessageImplementation(unittest.TestCase):
         
         mock_win32api = Mock()
         
-        with patch.object(main, 'WINDOWS_AVAILABLE', True), \
-             patch.object(main, 'win32gui', mock_win32gui), \
-             patch.object(main, 'win32api', mock_win32api):
-            app = InGameChatHelper(self.root)
-            app.is_connected = True
-            app.game_window_handle = 12345
-            app.coord1 = (100, 200)
-            app.coord2 = (300, 400)
-            
-            with patch('time.sleep'), \
-                 patch.object(app, 'clear_chat_area') as mock_clear:
+        mock_win32con = Mock()
+        mock_win32con.WM_CHAR = 0x0102
+        mock_win32con.KEYEVENTF_KEYUP = 0x0002
+        mock_win32con.VK_RETURN = 0x0D
+        
+        # Inject modules into main namespace temporarily
+        original_win32gui = getattr(main, 'win32gui', None)
+        original_win32api = getattr(main, 'win32api', None)
+        original_win32con = getattr(main, 'win32con', None)
+        main.win32gui = mock_win32gui
+        main.win32api = mock_win32api
+        main.win32con = mock_win32con
+        
+        try:
+            with patch.object(main, 'WINDOWS_AVAILABLE', True):
+                app = InGameChatHelper(self.root)
+                app.is_connected = True
+                app.game_window_handle = 12345
+                app.coord1 = (100, 200)
+                app.coord2 = (300, 400)
                 
-                app.send_message("Alice", "Hello World")
-                
-                # Verify window focusing
-                mock_win32gui.SetForegroundWindow.assert_called_with(12345)
-                mock_win32gui.BringWindowToTop.assert_called_with(12345)
-                mock_win32gui.SetActiveWindow.assert_called_with(12345)
-                
-                # Verify clear_chat_area was called
-                mock_clear.assert_called_once()
-                
-                # Verify keybd_event was called
-                mock_win32api.keybd_event.assert_called()
+                with patch('time.sleep'), \
+                     patch.object(app, 'clear_chat_area') as mock_clear:
+                    
+                    app.send_message("Alice", "Hello World")
+                    
+                    # Verify window focusing
+                    mock_win32gui.SetForegroundWindow.assert_called_with(12345)
+                    mock_win32gui.BringWindowToTop.assert_called_with(12345)
+                    mock_win32gui.SetActiveWindow.assert_called_with(12345)
+                    
+                    # Verify clear_chat_area was called
+                    mock_clear.assert_called_once()
+                    
+                    # Verify keybd_event was called
+                    mock_win32api.keybd_event.assert_called()
+        finally:
+            # Restore original state
+            if original_win32gui is not None:
+                main.win32gui = original_win32gui
+            elif hasattr(main, 'win32gui'):
+                delattr(main, 'win32gui')
+            if original_win32api is not None:
+                main.win32api = original_win32api
+            elif hasattr(main, 'win32api'):
+                delattr(main, 'win32api')
+            if original_win32con is not None:
+                main.win32con = original_win32con
+            elif hasattr(main, 'win32con'):
+                delattr(main, 'win32con')
     
     def test_focus_game_window_not_exists(self):
         """Test _focus_game_window when window doesn't exist"""
@@ -336,15 +372,25 @@ class TestSendMessageImplementation(unittest.TestCase):
         mock_win32gui = Mock()
         mock_win32gui.IsWindow.return_value = False
         
-        with patch.object(main, 'WINDOWS_AVAILABLE', True), \
-             patch.object(main, 'win32gui', mock_win32gui):
-            app = InGameChatHelper(self.root)
-            app.game_window_handle = 12345
-            
-            with self.assertRaises(Exception) as context:
-                app._focus_game_window()
-            
-            self.assertIn("Game window no longer exists", str(context.exception))
+        # Inject win32gui into main module temporarily  
+        original_win32gui = getattr(main, 'win32gui', None)
+        main.win32gui = mock_win32gui
+        
+        try:
+            with patch.object(main, 'WINDOWS_AVAILABLE', True):
+                app = InGameChatHelper(self.root)
+                app.game_window_handle = 12345
+                
+                with self.assertRaises(Exception) as context:
+                    app._focus_game_window()
+                
+                self.assertIn("Game window no longer exists", str(context.exception))
+        finally:
+            # Restore original state
+            if original_win32gui is not None:
+                main.win32gui = original_win32gui
+            elif hasattr(main, 'win32gui'):
+                delattr(main, 'win32gui')
 
 
 if __name__ == '__main__':
