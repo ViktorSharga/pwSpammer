@@ -714,8 +714,9 @@ class TemplateDialog:
         # Create dialog window
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
-        self.dialog.geometry("500x400")
-        self.dialog.resizable(False, False)
+        self.dialog.geometry("600x500")
+        self.dialog.resizable(True, True)
+        self.dialog.minsize(500, 450)
         self.dialog.transient(parent)
         self.dialog.grab_set()
         
@@ -735,7 +736,7 @@ class TemplateDialog:
         text_frame = ttk.Frame(self.dialog)
         text_frame.pack(fill='both', expand=True, padx=10, pady=5)
         
-        self.content_text = tk.Text(text_frame, height=15, width=50, wrap='word')
+        self.content_text = tk.Text(text_frame, height=18, width=60, wrap='word')
         content_scrollbar = ttk.Scrollbar(text_frame, orient='vertical', command=self.content_text.yview)
         self.content_text.configure(yscrollcommand=content_scrollbar.set)
         
@@ -751,12 +752,12 @@ class TemplateDialog:
         # Bind text change event
         self.content_text.bind('<KeyRelease>', self.on_text_change)
         
-        # Buttons
+        # Buttons - fixed at bottom
         button_frame = ttk.Frame(self.dialog)
-        button_frame.pack(pady=10)
+        button_frame.pack(side='bottom', pady=15)
         
-        ttk.Button(button_frame, text="OK", command=self.ok_clicked).pack(side='left', padx=5)
-        ttk.Button(button_frame, text="Cancel", command=self.cancel_clicked).pack(side='left', padx=5)
+        ttk.Button(button_frame, text="OK", command=self.ok_clicked).pack(side='left', padx=10)
+        ttk.Button(button_frame, text="Cancel", command=self.cancel_clicked).pack(side='left', padx=10)
         
         # Focus on short name entry
         self.short_name_entry.focus()
