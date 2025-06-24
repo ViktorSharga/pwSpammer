@@ -39,3 +39,57 @@ jobs:
         name: coverage-report
         path: htmlcov/
         retention-days: 7
+    
+    - name: Generate test report
+      if: always()
+      run: |
+        python -m pytest tests/ --json-report --json-report-file=report.json || true
+        echo "Test Summary:" > test_summary.txt
+        echo "=============" >> test_summary.txt
+        echo "" >> test_summary.txt
+        echo "Repository: ${{ github.repository }}" >> test_summary.txt
+        echo "Branch: ${{ github.ref }}" >> test_summary.txt
+        echo "Commit: ${{ github.sha }}" >> test_summary.txt
+        echo "Run ID: ${{ github.run_id }}" >> test_summary.txt
+        echo "Status: ${{ job.status }}" >> test_summary.txt
+        echo "" >> test_summary.txt
+        
+        # Extract test results
+        if (Test-Path report.json) {
+          $report = Get-Content report.json | ConvertFrom-Json
+          echo "Tests Run: $($report.summary.total)" >> test_summary.txt
+          echo "Passed: $($report.summary.passed)" >> test_summary.txt
+          echo "Failed: $($report.summary.failed)" >> test_summary.txt
+          echo "Skipped: $($report.summary.skipped)" >> test_summary.txt
+          echo "Duration: $($report.duration)s" >> test_summary.txt
+        }
+        
+        # Add coverage info if available
+        if (Test-Path coverage.xml) {
+          echo "" >> test_summary.txt
+          echo "Coverage report generated: coverage.xml" >> test_summary.txt
+        }
+    
+    - name: Send email notification
+      if: always()
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        secure: true
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: "Test Results - ${{ github.repository }} - ${{ job.status }}"
+        to: ${{ secrets.EMAIL_TO }}
+        from: GitHub Actions
+        body: |
+          Test run completed with status: ${{ job.status }}
+          
+          Repository: ${{ github.repository }}
+          Branch: ${{ github.ref }}
+          Commit: ${{ github.sha }}
+          
+          View full results: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          
+          Test summary attached.
+        attachments: test_summary.txt,report.json,coverage.xml
