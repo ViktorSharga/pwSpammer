@@ -30,6 +30,13 @@ class InGameChatHelper:
         self.templates = []
         self.selected_template_tile = None
         
+        # Spammer Tab variables
+        self.selected_recipients = {}  # {member_name: BooleanVar}
+        self.selected_template_index = None
+        self.message_preview = ""
+        self.is_sending = False
+        self.send_thread = None
+        
         # Setup Tab variables
         self.is_connected = False
         self.game_window_handle = None
@@ -145,9 +152,75 @@ class InGameChatHelper:
         self.spammer_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.spammer_frame, text="Spammer")
         
-        # TODO: Implement Spammer functionality
-        placeholder_label = ttk.Label(self.spammer_frame, text="Spammer Tab - Coming Soon")
-        placeholder_label.pack(pady=20)
+        # Main container with padding
+        main_container = ttk.Frame(self.spammer_frame)
+        main_container.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        # Recipient Area (Top)
+        recipient_frame = ttk.LabelFrame(main_container, text="Recipients", padding="10")
+        recipient_frame.pack(fill='both', expand=True, pady=(0, 10))
+        
+        # Recipients control frame
+        recipients_control_frame = ttk.Frame(recipient_frame)
+        recipients_control_frame.pack(fill='x', pady=(0, 10))
+        
+        ttk.Button(recipients_control_frame, text="Unselect All", command=self.unselect_all_recipients).pack(side='left')
+        self.recipients_count_label = ttk.Label(recipients_control_frame, text="0 recipients selected")
+        self.recipients_count_label.pack(side='right')
+        
+        # Recipients scrollable area
+        recipients_canvas_frame = ttk.Frame(recipient_frame)
+        recipients_canvas_frame.pack(fill='both', expand=True)
+        
+        self.recipients_canvas = tk.Canvas(recipients_canvas_frame, height=200, highlightthickness=0)
+        recipients_scrollbar = ttk.Scrollbar(recipients_canvas_frame, orient='vertical', command=self.recipients_canvas.yview)
+        self.recipients_canvas.configure(yscrollcommand=recipients_scrollbar.set)
+        
+        self.recipients_canvas.pack(side='left', fill='both', expand=True)
+        recipients_scrollbar.pack(side='right', fill='y')
+        
+        self.recipients_scrollable_frame = ttk.Frame(self.recipients_canvas)
+        self.recipients_canvas_window = self.recipients_canvas.create_window((0, 0), window=self.recipients_scrollable_frame, anchor='nw')
+        
+        # Bind canvas events
+        self.recipients_canvas.bind('<Configure>', self.on_recipients_canvas_configure)
+        self.recipients_scrollable_frame.bind('<Configure>', self.on_recipients_frame_configure)
+        
+        # Message Area (Bottom)
+        message_frame = ttk.LabelFrame(main_container, text="Message", padding="10")
+        message_frame.pack(fill='x')
+        
+        # Template selection
+        template_select_frame = ttk.Frame(message_frame)
+        template_select_frame.pack(fill='x', pady=(0, 10))
+        
+        ttk.Label(template_select_frame, text="Template:").pack(side='left')
+        self.template_combobox = ttk.Combobox(template_select_frame, state='readonly', width=30)
+        self.template_combobox.pack(side='left', padx=(5, 10))
+        self.template_combobox.bind('<<ComboboxSelected>>', self.on_template_selected)
+        
+        ttk.Button(template_select_frame, text="Edit", command=self.edit_message).pack(side='left', padx=5)
+        
+        # Message preview
+        preview_frame = ttk.Frame(message_frame)
+        preview_frame.pack(fill='x', pady=(0, 10))
+        
+        ttk.Label(preview_frame, text="Preview:").pack(anchor='w')
+        self.message_preview_text = tk.Text(preview_frame, height=4, state='disabled', wrap='word')
+        self.message_preview_text.pack(fill='x')
+        
+        # Send buttons
+        send_buttons_frame = ttk.Frame(message_frame)
+        send_buttons_frame.pack(fill='x')
+        
+        self.send_next_button = ttk.Button(send_buttons_frame, text="Send Next", command=self.send_next, state='disabled')
+        self.send_next_button.pack(side='left', padx=5)
+        
+        self.send_all_button = ttk.Button(send_buttons_frame, text="Send All", command=self.send_all, state='disabled')
+        self.send_all_button.pack(side='left', padx=5)
+        
+        # Initialize recipients display
+        self.refresh_recipients_display()
     
     def create_setup_tab(self):
         # Setup Tab
@@ -294,6 +367,10 @@ class InGameChatHelper:
         self.members_listbox.delete(0, tk.END)
         for member in self.members:
             self.members_listbox.insert(tk.END, member)
+        
+        # Update Spammer tab recipients when members change
+        if hasattr(self, 'recipients_scrollable_frame'):
+            self.refresh_recipients_display()
     
     def save_members(self):
         file_path = filedialog.asksaveasfilename(
@@ -398,6 +475,10 @@ class InGameChatHelper:
         # Update scroll region
         self.templates_scrollable_frame.update_idletasks()
         self.templates_canvas.configure(scrollregion=self.templates_canvas.bbox('all'))
+        
+        # Update Spammer tab template dropdown when templates change
+        if hasattr(self, 'template_combobox'):
+            self.refresh_template_dropdown()
     
     def create_template_tile(self, index, template):
         # Create tile frame
@@ -455,6 +536,190 @@ class InGameChatHelper:
                 for child in tile.winfo_children():
                     if isinstance(child, ttk.Label):
                         child.configure(background='')
+    
+    # Spammer Tab Methods
+    def refresh_recipients_display(self):
+        # Clear existing checkboxes
+        for widget in self.recipients_scrollable_frame.winfo_children():
+            widget.destroy()
+        
+        # Clear selected recipients tracking
+        self.selected_recipients.clear()
+        
+        # Create checkboxes for each member
+        for member in self.members:
+            var = tk.BooleanVar(value=True)  # All selected by default
+            self.selected_recipients[member] = var
+            
+            checkbox = ttk.Checkbutton(
+                self.recipients_scrollable_frame, 
+                text=member, 
+                variable=var,
+                command=self.update_recipients_count
+            )
+            checkbox.pack(anchor='w', padx=5, pady=1)
+        
+        # Update scroll region and count
+        self.recipients_scrollable_frame.update_idletasks()
+        self.recipients_canvas.configure(scrollregion=self.recipients_canvas.bbox('all'))
+        self.update_recipients_count()
+        self.refresh_template_dropdown()
+    
+    def on_recipients_canvas_configure(self, event):
+        canvas_width = event.width
+        self.recipients_canvas.itemconfig(self.recipients_canvas_window, width=canvas_width)
+    
+    def on_recipients_frame_configure(self, event):
+        self.recipients_canvas.configure(scrollregion=self.recipients_canvas.bbox('all'))
+    
+    def unselect_all_recipients(self):
+        for var in self.selected_recipients.values():
+            var.set(False)
+        self.update_recipients_count()
+    
+    def update_recipients_count(self):
+        selected_count = sum(1 for var in self.selected_recipients.values() if var.get())
+        self.recipients_count_label.config(text=f"{selected_count} recipients selected")
+        
+        # Update send button states
+        has_recipients = selected_count > 0
+        has_message = self.message_preview.strip() != ""
+        can_send = has_recipients and has_message
+        
+        self.send_next_button.config(state='normal' if can_send else 'disabled')
+        self.send_all_button.config(state='normal' if can_send else 'disabled')
+    
+    def refresh_template_dropdown(self):
+        # Update template combobox
+        template_names = [template['short_name'] for template in self.templates]
+        self.template_combobox['values'] = template_names
+        
+        # Reset selection if current selection is no longer valid
+        if self.selected_template_index is not None and self.selected_template_index >= len(self.templates):
+            self.selected_template_index = None
+            self.template_combobox.set("")
+            self.update_message_preview("")
+    
+    def on_template_selected(self, event):
+        selection = self.template_combobox.current()
+        if selection >= 0:
+            self.selected_template_index = selection
+            template = self.templates[selection]
+            self.update_message_preview(template['content'])
+        else:
+            self.selected_template_index = None
+            self.update_message_preview("")
+    
+    def update_message_preview(self, message):
+        self.message_preview = message
+        self.message_preview_text.config(state='normal')
+        self.message_preview_text.delete('1.0', tk.END)
+        self.message_preview_text.insert('1.0', message)
+        self.message_preview_text.config(state='disabled')
+        self.update_recipients_count()
+    
+    def edit_message(self):
+        if self.selected_template_index is not None:
+            template = self.templates[self.selected_template_index]
+            dialog = MessageEditDialog(self.root, "Edit Message", template['short_name'], self.message_preview)
+            if dialog.result:
+                self.update_message_preview(dialog.result)
+    
+    def send_next(self):
+        # Find first selected recipient
+        selected_members = [member for member, var in self.selected_recipients.items() if var.get()]
+        if not selected_members:
+            messagebox.showwarning("Warning", "No recipients selected")
+            return
+        
+        if not self.message_preview.strip():
+            messagebox.showwarning("Warning", "No message content")
+            return
+        
+        # Get first recipient
+        recipient = selected_members[0]
+        template_name = self.template_combobox.get() if self.selected_template_index is not None else "Custom"
+        
+        # Mock send (as per spec)
+        try:
+            self.mock_send_message(recipient, self.message_preview)
+            
+            # Unselect the recipient
+            self.selected_recipients[recipient].set(False)
+            self.update_recipients_count()
+            
+            # Log the action
+            self.log_message(f"→ Sent {template_name} to {recipient}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to send message: {str(e)}")
+    
+    def send_all(self):
+        if self.is_sending:
+            # Stop sending
+            self.is_sending = False
+            self.send_all_button.config(text="Send All")
+            if self.send_thread and self.send_thread.is_alive():
+                self.send_thread = None
+            return
+        
+        # Start sending
+        selected_members = [member for member, var in self.selected_recipients.items() if var.get()]
+        if not selected_members:
+            messagebox.showwarning("Warning", "No recipients selected")
+            return
+        
+        if not self.message_preview.strip():
+            messagebox.showwarning("Warning", "No message content")
+            return
+        
+        self.is_sending = True
+        self.send_all_button.config(text="Stop")
+        
+        # Start sending thread
+        self.send_thread = threading.Thread(target=self.send_all_worker, args=(selected_members,), daemon=True)
+        self.send_thread.start()
+    
+    def send_all_worker(self, selected_members):
+        template_name = self.template_combobox.get() if self.selected_template_index is not None else "Custom"
+        
+        for member in selected_members:
+            if not self.is_sending:
+                break
+            
+            try:
+                # Mock send
+                self.mock_send_message(member, self.message_preview)
+                
+                # Update UI on main thread
+                self.root.after(0, lambda m=member: self.selected_recipients[m].set(False))
+                self.root.after(0, self.update_recipients_count)
+                self.root.after(0, lambda m=member, t=template_name: self.log_message(f"→ Sent {t} to {m}"))
+                
+                # 500ms delay
+                time.sleep(0.5)
+                
+            except Exception as e:
+                self.root.after(0, lambda err=str(e): messagebox.showerror("Error", f"Failed to send message: {err}"))
+                break
+        
+        # Reset button state
+        self.root.after(0, self.reset_send_all_button)
+    
+    def reset_send_all_button(self):
+        self.is_sending = False
+        self.send_all_button.config(text="Send All")
+    
+    def mock_send_message(self, recipient, message):
+        # Mock implementation - in real version this would:
+        # 1. Call ClearChatArea()
+        # 2. Send string f"/{recipient} {message}"
+        # 3. Send Enter key
+        pass
+    
+    def log_message(self, message):
+        # For now just print - in real version would update lock area
+        print(message)
     
     # Setup Tab Methods
     def setup_hotkeys(self):
@@ -833,6 +1098,64 @@ class TemplateDialog:
             'short_name': short_name,
             'content': content
         }
+        self.dialog.destroy()
+    
+    def cancel_clicked(self):
+        self.dialog.destroy()
+
+
+class MessageEditDialog:
+    def __init__(self, parent, title, template_name, initial_content=""):
+        self.result = None
+        
+        # Create dialog window
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title(title)
+        self.dialog.geometry("500x400")
+        self.dialog.resizable(True, True)
+        self.dialog.minsize(400, 300)
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        
+        # Center the dialog
+        self.dialog.geometry("+%d+%d" % (parent.winfo_rootx() + 50, parent.winfo_rooty() + 50))
+        
+        # Template name label
+        ttk.Label(self.dialog, text=f"Editing: {template_name}", font=('TkDefaultFont', 10, 'bold')).pack(pady=(10, 5))
+        
+        # Content field
+        ttk.Label(self.dialog, text="Message Content:").pack(pady=(10, 5))
+        
+        # Text widget with scrollbar
+        text_frame = ttk.Frame(self.dialog)
+        text_frame.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        self.content_text = tk.Text(text_frame, height=15, width=50, wrap='word')
+        content_scrollbar = ttk.Scrollbar(text_frame, orient='vertical', command=self.content_text.yview)
+        self.content_text.configure(yscrollcommand=content_scrollbar.set)
+        
+        self.content_text.pack(side='left', fill='both', expand=True)
+        content_scrollbar.pack(side='right', fill='y')
+        
+        self.content_text.insert('1.0', initial_content)
+        
+        # Buttons - fixed at bottom
+        button_frame = ttk.Frame(self.dialog)
+        button_frame.pack(side='bottom', pady=15)
+        
+        ttk.Button(button_frame, text="OK", command=self.ok_clicked).pack(side='left', padx=10)
+        ttk.Button(button_frame, text="Cancel", command=self.cancel_clicked).pack(side='left', padx=10)
+        
+        # Focus on text area
+        self.content_text.focus()
+        
+        # Wait for dialog to close
+        self.dialog.wait_window()
+    
+    def ok_clicked(self):
+        content = self.content_text.get('1.0', 'end-1c').strip()
+        if content:
+            self.result = content
         self.dialog.destroy()
     
     def cancel_clicked(self):
