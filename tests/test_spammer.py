@@ -109,7 +109,9 @@ class TestSpammerTab(unittest.TestCase):
         self.app.refresh_template_dropdown()
         self.app.template_combobox.current(0)
         
-        with patch.object(self.app, 'mock_send_message') as mock_send, \
+        # Mock validation to return True for testing
+        with patch.object(self.app, '_validate_send_requirements', return_value=True), \
+             patch.object(self.app, 'mock_send_message') as mock_send, \
              patch.object(self.app, 'log_message') as mock_log:
             
             self.app.send_next()
@@ -141,7 +143,9 @@ class TestSpammerTab(unittest.TestCase):
         # Test starting
         self.assertFalse(self.app.is_sending)
         
-        with patch.object(self.app, 'send_all_worker'):
+        # Mock validation to return True for testing
+        with patch.object(self.app, '_validate_send_requirements', return_value=True), \
+             patch.object(self.app, 'send_all_worker'):
             self.app.send_all()
             self.assertTrue(self.app.is_sending)
             self.assertEqual(self.app.send_all_button['text'], "Stop")

@@ -81,7 +81,8 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(str(self.app.send_all_button['state']), 'normal')
         
         # Send to one recipient
-        with patch.object(self.app, 'mock_send_message') as mock_send, \
+        with patch.object(self.app, '_validate_send_requirements', return_value=True), \
+             patch.object(self.app, 'mock_send_message') as mock_send, \
              patch.object(self.app, 'log_message'):
             
             self.app.send_next()
