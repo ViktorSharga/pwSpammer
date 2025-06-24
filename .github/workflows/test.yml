@@ -78,12 +78,11 @@ jobs:
       with:
         server_address: smtp.gmail.com
         server_port: 587
-        secure: true
         username: ${{ secrets.EMAIL_USERNAME }}
         password: ${{ secrets.EMAIL_PASSWORD }}
         subject: "Test Results - ${{ github.repository }} - ${{ job.status }}"
         to: ${{ secrets.EMAIL_TO }}
-        from: GitHub Actions
+        from: ${{ secrets.EMAIL_USERNAME }}
         body: |
           Test run completed with status: ${{ job.status }}
           

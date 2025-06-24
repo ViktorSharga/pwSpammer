@@ -37,9 +37,27 @@ The email will include:
   - `report.json`: Machine-readable test results (can be parsed by Claude)
   - `coverage.xml`: Code coverage data
 
-## Alternative Email Providers
+## Troubleshooting Email Issues
 
-If you prefer not to use Gmail, you can modify the workflow to use other SMTP servers:
-- Outlook: `smtp-mail.outlook.com` (port 587)
-- Yahoo: `smtp.mail.yahoo.com` (port 587)
-- Custom SMTP: Update server_address and server_port accordingly
+If email fails with SSL errors, try these alternatives:
+
+### Option 1: Use Outlook instead of Gmail
+Replace the email configuration with:
+```yaml
+server_address: smtp-mail.outlook.com
+server_port: 587
+```
+
+### Option 2: Alternative Email Action
+Replace the send-mail step with:
+```yaml
+- name: Send email notification
+  uses: cinotify/github-action@main
+  with:
+    to: ${{ secrets.EMAIL_TO }}
+    subject: "Test Results - ${{ github.repository }}"
+    body: "Test completed with status: ${{ job.status }}"
+```
+
+### Option 3: No Email (GitHub Notifications Only)
+Remove the email step entirely and rely on GitHub's built-in notifications in the Actions tab.
