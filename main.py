@@ -526,9 +526,9 @@ class InGameChatHelper:
         )
         if file_path:
             try:
-                with open(file_path, 'r') as f:
+                with open(file_path, 'r', encoding='utf-8') as f:
                     loaded_members = json.load(f)
-                
+                    
                 # Filter out duplicates (case-insensitive)
                 new_members = []
                 duplicates = []
