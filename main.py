@@ -386,6 +386,11 @@ class InGameChatHelper:
         for widget in self.templates_scrollable_frame.winfo_children():
             widget.destroy()
         
+        # Reset selection state
+        self.selected_template_tile = None
+        self.edit_template_button.config(state='disabled')
+        self.remove_template_button.config(state='disabled')
+        
         # Create new tiles
         for i, template in enumerate(self.templates):
             self.create_template_tile(i, template)
@@ -437,9 +442,19 @@ class InGameChatHelper:
         if index < len(tiles):
             tile = tiles[index]
             if selected:
-                tile.configure(style='Selected.TFrame')
+                # Use background color for selection feedback
+                tile.configure(relief='raised', borderwidth=2)
+                # Also configure the labels inside
+                for child in tile.winfo_children():
+                    if isinstance(child, ttk.Label):
+                        child.configure(background='lightblue')
             else:
-                tile.configure(style='TFrame')
+                # Reset to normal appearance
+                tile.configure(relief='solid', borderwidth=1)
+                # Reset label backgrounds
+                for child in tile.winfo_children():
+                    if isinstance(child, ttk.Label):
+                        child.configure(background='')
     
     # Setup Tab Methods
     def setup_hotkeys(self):
