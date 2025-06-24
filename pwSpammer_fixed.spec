@@ -42,9 +42,7 @@ hiddenimports.extend(collect_submodules('psutil'))
 
 # Collect binary files
 binaries = []
-datas = [
-    ('pwSpammer.manifest', '.'),  # Include manifest file
-]
+datas = []
 
 # Add Windows system DLLs if needed
 if sys.platform == 'win32':
@@ -97,5 +95,5 @@ exe = EXE(
     icon=None,
     uac_admin=True,  # Request admin privileges
     uac_uiaccess=False,
-    manifest='pwSpammer.manifest',  # Add Windows manifest
+    manifest=None,  # Use default manifest with uac_admin=True
 )
